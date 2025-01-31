@@ -1,6 +1,6 @@
 # Lista_de_Compras
 
-# Lista de Compras Interativa
+# Lista de Compras Interativa 🛒
 
 Cansado de esquecer itens no mercado?  Este app te ajuda a organizar suas compras de forma prática e eficiente! ✅
 
