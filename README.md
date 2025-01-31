@@ -19,7 +19,7 @@ Este projeto é uma aplicação web interativa de lista de compras, que permite 
 
 ## Como usar
 
-1. Clone o repositório: `git clone https://github.com/seu-usuario/nome-do-repositorio.git`
+1. Clone o repositório: `git clone https://github.com/Erick-Lim-Souza/Lista_de_Compras.git`
 2. Abra o arquivo `index.html` em seu navegador.
 3. Utilize o formulário para registrar novas alimetos
 4. Clicar no botão de PDF para gerar aqui em PDF que será baixado.
@@ -54,6 +54,7 @@ Se você quiser contribuir, siga estas etapas:
 Este projeto está licenciado sob a licença MIT. Sinta-se à vontade para usá-lo e modificá-lo conforme necessário.
 
 ##Imagem de como a tela esta atualmente.
+
 ![image](https://github.com/user-attachments/assets/d7b15952-da5d-423d-966e-76a3caf2af10)
 
 ---
