@@ -1,0 +1,109 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    transition: background 0.3s ease;
+    position: relative;
+  }
+  
+  .container {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 320px;
+    text-align: center;
+    position: relative;
+  }
+  
+  h1 {
+    margin-bottom: 20px;
+  }
+  
+  input {
+    width: calc(100% - 20px);
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  button {
+    padding: 10px;
+    margin: 5px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  button:hover {
+    background: #218838;
+  }
+  
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  li {
+    background: #f8f9fa;
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  
+  li.removing {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  
+  /* Checkbox para marcar como comprado */
+  .completed {
+    text-decoration: line-through;
+    opacity: 0.7;
+    color: #888;
+  }
+  
+  /* Modo Escuro aprimorado */
+  .dark-mode {
+    background: #222;
+    color: white;
+  }
+  
+  .dark-mode .container {
+    background: #333;
+    color: white;
+  }
+  
+  .dark-mode input, .dark-mode button {
+    background: #444;
+    color: white;
+    border: 1px solid #777;
+  }
+  
+  .dark-mode button:hover {
+    background: #555;
+  }
+  
+  /* Responsividade */
+  @media (max-width: 480px) {
+    .container {
+      width: 90%;
+      padding: 10px;
+    }
+    input, button {
+      width: 100%;
+    }
+  }
+  
