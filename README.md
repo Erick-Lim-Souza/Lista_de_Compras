@@ -84,5 +84,9 @@ Erick Souza
 
 E-mail: erick.devzone@gmail.com
 
+##DEMO
+
+- [Lista de Compras](https://erick-lim-souza.github.io/)
+
 ---
 **Desenvolvido com dedicação e foco no aprendizado de tecnologias web.**
