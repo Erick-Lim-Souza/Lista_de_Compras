@@ -72,12 +72,15 @@ Este projeto está licenciado sob a licença MIT. Sinta-se à vontade para usá-
 
 ![image](https://github.com/user-attachments/assets/d7b15952-da5d-423d-966e-76a3caf2af10)
 
-Autor
+##Autor:
+
 Erick Souza
 
-GitHub: Erick-Lim-Souza
 
-LinkedIn: Erick Souza
+- [Meu GitHub: Erick-Lim-Souza](https://github.com/Erick-Lim-Souza")
+- [Meu Linkedin](https://www.linkedin.com/in/erick-souza-70404686/ "Meu LinKedin")
+- [Meu perfil DIO.me](https://www.dio.me/users/erickdelimasouza "Meu perfil DIO.me")
+- [Meu perfil Alura](https://cursos.alura.com.br/user/erickdelimasouza)
 
 E-mail: erick.devzone@gmail.com
 
