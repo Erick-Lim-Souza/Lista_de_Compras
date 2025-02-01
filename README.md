@@ -70,7 +70,8 @@ Este projeto está licenciado sob a licença MIT. Sinta-se à vontade para usá-
 
 ##Imagem de como a tela esta atualmente.
 
-![image](https://github.com/user-attachments/assets/d7b15952-da5d-423d-966e-76a3caf2af10)
+![Captura de tela 2025-02-01 002028](https://github.com/user-attachments/assets/8665f26a-865d-4cd3-a65b-26f196de4363)
+
 
 ##Autor:
 
