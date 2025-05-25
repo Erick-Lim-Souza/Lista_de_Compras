@@ -6,6 +6,8 @@ Uma aplicação web moderna e responsiva para gerenciar suas listas de compras d
 ![GitHub last commit](https://img.shields.io/github/last-commit/Erick-Lim-Souza/Lista_de_Compras?style=flat-square)
 ![GitHub repo size](https://img.shields.io/github/repo-size/Erick-Lim-Souza/Lista_de_Compras?style=flat-square)
 
+[Link Demo](https://lista-de-compras-six-brown.vercel.app/)
+
 ## ✨ Funcionalidades
 
 ### 📝 Gerenciamento de Itens
