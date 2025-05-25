@@ -182,7 +182,7 @@ Este projeto está licenciado sob a **Licença MIT**. Veja o arquivo [LICENSE](L
 
 ## 👨‍💻 Autor
 
-**Erick Souza**
+**Erick de Lima Souza**
 
 - 🌐 [GitHub: Erick-Lim-Souza](https://github.com/Erick-Lim-Souza)
 - 💼 [LinkedIn](https://www.linkedin.com/in/erick-souza-70404686/)
@@ -198,6 +198,10 @@ Este projeto está licenciado sob a **Licença MIT**. Veja o arquivo [LICENSE](L
 
 ---
 
-**Desenvolvido com ❤️ e dedicação ao aprendizado de tecnologias web modernas.**
+**Desenvolvido com 💚 e dedicação ao aprendizado de tecnologias web modernas. 💪🏾**
 
 *Transforme suas compras em uma experiência organizada e eficiente!* 🛒✨
+
+![Lista de comprras](https://github.com/user-attachments/assets/0a3cb67d-4448-4716-81b2-ffbc1566297d)
+
+
