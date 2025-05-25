@@ -3,27 +3,130 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lista de Compras</title>
+  <title>Lista de Compras Inteligente</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
-    <button id="darkModeToggle">🌙</button> <!-- Botão de modo escuro -->
-    <h1>Lista de Compras</h1>
-    <input type="text" id="itemInput" placeholder="Digite um item...">
-    <button id="addButton">Adicionar</button>
-    <button id="clearAllButton">Limpar Lista</button>
-    <button id="shareButton">Compartilhar Lista</button>
+    <header class="header">
+      <h1>🛒 Lista de Compras</h1>
+      <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
+        <span class="theme-icon">🌙</span>
+      </button>
+    </header>
+    
+    <form class="input-form" id="itemForm">
+      <div class="input-group">
+        <div class="input-field">
+          <label for="itemInput">Item</label>
+          <input type="text" id="itemInput" placeholder="Digite o nome do item..." required>
+        </div>
+        
+        <div class="input-field">
+          <label for="categorySelect">Categoria</label>
+          <select id="categorySelect">
+            <option value="Alimentos">🍎 Alimentos</option>
+            <option value="Limpeza">🧽 Limpeza</option>
+            <option value="Higiene">🧴 Higiene</option>
+            <option value="Bebidas">🥤 Bebidas</option>
+            <option value="Outros">📦 Outros</option>
+          </select>
+        </div>
+      </div>
 
-    <ul id="itemList"></ul>
+      <div class="input-group">
+        <div class="input-field">
+          <label for="quantityInput">Quantidade</label>
+          <input type="number" id="quantityInput" placeholder="1" min="0.1" step="0.1" value="1">
+        </div>
+        
+        <div class="input-field">
+          <label for="unitSelect">Unidade</label>
+          <select id="unitSelect">
+            <option value="unidade">Unidade</option>
+            <option value="kg">Kg</option>
+            <option value="g">Gramas</option>
+            <option value="l">Litros</option>
+            <option value="ml">ml</option>
+            <option value="pacote">Pacote</option>
+          </select>
+        </div>
+        
+        <div class="input-field">
+          <label for="priceInput">Preço (R$)</label>
+          <input type="number" id="priceInput" placeholder="0.00" min="0" step="0.01">
+        </div>
+      </div>
 
-    <div class="export-buttons">
-      <button id="exportTxt">Exportar TXT</button>
-      <button id="exportPdf">Exportar PDF</button>
-      <button id="exportExcel">Exportar Excel</button>
+      <button type="submit" id="addButton" class="btn btn-primary">
+        ➕ Adicionar Item
+      </button>
+    </form>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">Total de Itens:</span>
+        <span id="totalItems" class="stat-value">0</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Valor Total:</span>
+        <span id="totalPrice" class="stat-value">R$ 0,00</span>
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="all">Todos</button>
+        <button class="filter-btn" data-filter="pending">Pendentes</button>
+        <button class="filter-btn" data-filter="completed">Comprados</button>
+      </div>
+    </div>
+
+    <div class="list-container">
+      <ul id="itemList" class="item-list"></ul>
+      <div id="emptyState" class="empty-state">
+        <div class="empty-icon">🛒</div>
+        <h3>Lista vazia</h3>
+        <p>Adicione seu primeiro item para começar!</p>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <div class="button-group">
+        <button id="clearAllButton" class="btn btn-danger">
+          🗑️ Limpar Lista
+        </button>
+        <button id="shareButton" class="btn btn-secondary">
+          📤 Compartilhar
+        </button>
+      </div>
+      
+      <div class="export-buttons">
+        <h3>Exportar Lista</h3>
+        <div class="export-group">
+          <button id="exportTxt" class="btn btn-export">📄 TXT</button>
+          <button id="exportPdf" class="btn btn-export">📑 PDF</button>
+          <button id="exportExcel" class="btn btn-export">📊 Excel</button>
+        </div>
+      </div>
     </div>
   </div>
+
+  <div id="confirmModal" class="modal">
+    <div class="modal-content">
+      <h3>Confirmar ação</h3>
+      <p id="confirmMessage">Tem certeza que deseja continuar?</p>
+      <div class="modal-buttons">
+        <button id="confirmCancel" class="btn btn-secondary">Cancelar</button>
+        <button id="confirmOk" class="btn btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
