@@ -521,18 +521,45 @@ class ShoppingList {
     return content;
   }
 
-  // Exportação
-  exportToTxt() {
-    if (this.items.length === 0) {
-      this.showError('A lista está vazia.');
-      return;
-    }
-
-    const content = this.generateExportContent('txt');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    this.downloadFile(blob, 'lista_de_compras.txt');
+  // Função auxiliar para agrupar itens por categoria
+  groupItemsByCategory() {
+    const categories = {};
+    this.items.forEach(item => {
+      if (!categories[item.category]) {
+        categories[item.category] = [];
+      }
+      categories[item.category].push(item);
+    });
+    
+    // Ordenar categorias alfabeticamente
+    const sortedCategories = {};
+    Object.keys(categories).sort().forEach(key => {
+      // Ordenar itens dentro de cada categoria (pendentes primeiro, depois por nome)
+      categories[key].sort((a, b) => {
+        if (a.purchased !== b.purchased) {
+          return a.purchased ? 1 : -1;
+        }
+        return a.text.localeCompare(b.text);
+      });
+      sortedCategories[key] = categories[key];
+    });
+    
+    return sortedCategories;
   }
 
+  // Função auxiliar para cores das categorias no PDF
+  getCategoryColor(category) {
+    const colors = {
+      'Alimentos': [34, 197, 94],    // Verde
+      'Limpeza': [59, 130, 246],     // Azul
+      'Higiene': [168, 85, 247],     // Roxo
+      'Bebidas': [245, 158, 11],     // Laranja
+      'Outros': [107, 114, 128]      // Cinza
+    };
+    return colors[category] || [107, 114, 128];
+  }
+
+  // Exportação para PDF
   exportToPdf() {
     if (this.items.length === 0) {
       this.showError('A lista está vazia.');
@@ -543,72 +570,175 @@ class ShoppingList {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       
-      // Configurações
-      doc.setFont('helvetica');
+      // Configurações de cores
+      const colors = {
+        primary: [79, 70, 229],
+        secondary: [107, 114, 128],
+        success: [16, 185, 129],
+        danger: [239, 68, 68],
+        text: [30, 41, 59],
+        lightGray: [248, 250, 252],
+        border: [226, 232, 240]
+      };
       
-      // Título
-      doc.setFontSize(20);
+      let y = 20;
+      
+      // CABEÇALHO PRINCIPAL
+      // Fundo do cabeçalho
+      doc.setFillColor(...colors.primary);
+      doc.rect(0, 0, 210, 40, 'F');
+      
+      // Título principal
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
       doc.setFont('helvetica', 'bold');
-      doc.text('🛒 Lista de Compras', 20, 25);
+      doc.text('🛒 LISTA DE COMPRAS', 20, 25);
       
-      // Data
+      // Data e hora no cabeçalho
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 20, 35);
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-BR');
+      const timeStr = now.toLocaleTimeString('pt-BR');
+      doc.text(`Gerado em: ${dateStr} às ${timeStr}`, 20, 35);
       
-      let y = 50;
+      y = 55;
       
-      // Agrupar por categoria
-      const categories = {};
-      this.items.forEach(item => {
-        if (!categories[item.category]) {
-          categories[item.category] = [];
-        }
-        categories[item.category].push(item);
-      });
+      // RESUMO ESTATÍSTICO
+      doc.setTextColor(...colors.text);
+      doc.setFillColor(...colors.lightGray);
+      doc.rect(15, y - 5, 180, 25, 'F');
       
-      Object.keys(categories).forEach(category => {
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('📊 RESUMO', 20, y + 5);
+      
+      const totalItems = this.items.length;
+      const completedItems = this.items.filter(item => item.purchased).length;
+      const pendingItems = totalItems - completedItems;
+      const totalValue = this.calculateTotal();
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`• Total de itens: ${totalItems}`, 20, y + 12);
+      doc.text(`• Comprados: ${completedItems}`, 70, y + 12);
+      doc.text(`• Pendentes: ${pendingItems}`, 120, y + 12);
+      doc.text(`• Valor total: R$ ${totalValue.toFixed(2).replace('.', ',')}`, 20, y + 18);
+      
+      y += 35;
+      
+      // ITENS POR CATEGORIA
+      const categories = this.groupItemsByCategory();
+      
+      Object.keys(categories).forEach((category, categoryIndex) => {
         // Verificar se precisa de nova página
         if (y > 250) {
           doc.addPage();
           y = 20;
         }
         
-        // Categoria
-        doc.setFontSize(14);
+        // Cabeçalho da categoria
+        const categoryColor = this.getCategoryColor(category);
+        doc.setFillColor(...categoryColor);
+        doc.rect(15, y - 2, 180, 15, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(`${this.getCategoryIcon(category)} ${category}`, 20, y);
-        y += 10;
+        const icon = this.getCategoryIcon(category);
+        doc.text(`${icon} ${category.toUpperCase()}`, 20, y + 8);
+        
+        // Contador de itens da categoria
+        const categoryItems = categories[category];
+        const categoryTotal = categoryItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        doc.text(`${categoryItems.length} itens - R$ ${categoryTotal.toFixed(2).replace('.', ',')}`, 150, y + 8);
+        
+        y += 20;
+        
+        // Cabeçalho da tabela de itens
+        doc.setFillColor(...colors.border);
+        doc.rect(15, y, 180, 10, 'F');
+        
+        doc.setTextColor(...colors.text);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Status', 20, y + 6);
+        doc.text('Item', 35, y + 6);
+        doc.text('Qtd', 120, y + 6);
+        doc.text('Unidade', 140, y + 6);
+        doc.text('Preço Unit.', 165, y + 6);
+        doc.text('Subtotal', 185, y + 6);
+        
+        y += 12;
         
         // Itens da categoria
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        
-        categories[category].forEach(item => {
-          if (y > 270) {
+        categoryItems.forEach((item, index) => {
+          if (y > 280) {
             doc.addPage();
             y = 20;
           }
           
+          // Linha alternada
+          if (index % 2 === 0) {
+            doc.setFillColor(250, 250, 250);
+            doc.rect(15, y - 2, 180, 8, 'F');
+          }
+          
+          doc.setTextColor(...colors.text);
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          
+          // Status
           const status = item.purchased ? '✓' : '○';
-          const line = `${status} ${item.text} - ${item.quantity} ${item.unit} - R$ ${item.price.toFixed(2)}`;
-          doc.text(line, 25, y);
-          y += 7;
+          const statusColor = item.purchased ? colors.success : colors.secondary;
+          doc.setTextColor(...statusColor);
+          doc.text(status, 22, y + 3);
+          
+          // Texto do item
+          doc.setTextColor(...colors.text);
+          const itemText = item.text.length > 35 ? item.text.substring(0, 32) + '...' : item.text;
+          if (item.purchased) {
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(...colors.secondary);
+          }
+          doc.text(itemText, 35, y + 3);
+          
+          // Dados numéricos
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...colors.text);
+          doc.text(item.quantity.toString(), 125, y + 3);
+          doc.text(item.unit, 142, y + 3);
+          doc.text(`R$ ${item.price.toFixed(2).replace('.', ',')}`, 167, y + 3);
+          
+          const subtotal = item.price * item.quantity;
+          doc.setFont('helvetica', 'bold');
+          doc.text(`R$ ${subtotal.toFixed(2).replace('.', ',')}`, 187, y + 3);
+          
+          y += 8;
         });
         
         y += 5;
       });
       
-      // Total
-      const total = this.calculateTotal();
-      if (total > 0) {
-        y += 10;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Total: R$ ${total.toFixed(2)}`, 20, y);
+      // RODAPÉ
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        // Linha do rodapé
+        doc.setDrawColor(...colors.border);
+        doc.line(15, 285, 195, 285);
+        
+        doc.setTextColor(...colors.secondary);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Gerado por Lista de Compras Inteligente', 20, 290);
+        doc.text(`Página ${i} de ${pageCount}`, 170, 290);
       }
       
-      doc.save('lista_de_compras.pdf');
+      // Download do arquivo
+      const fileName = `lista_compras_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
       this.showSuccess('PDF exportado com sucesso!');
       
     } catch (error) {
@@ -617,68 +747,168 @@ class ShoppingList {
     }
   }
 
+  // Exportação para Excel
   exportToExcel() {
     if (this.items.length === 0) {
       this.showError('A lista está vazia.');
       return;
     }
 
-    // Criar CSV compatível com Excel
-    let csvContent = '\uFEFF'; // BOM para UTF-8
-    csvContent += 'Categoria,Item,Quantidade,Unidade,Preço,Status\n';
-    
-    this.items.forEach(item => {
-      const status = item.purchased ? 'Comprado' : 'Pendente';
-      const price = item.price.toFixed(2).replace('.', ',');
-      csvContent += `"${item.category}","${item.text}","${item.quantity}","${item.unit}","R$ ${price}","${status}"\n`;
-    });
-    
-    // Adicionar total
-    const total = this.calculateTotal().toFixed(2).replace('.', ',');
-    csvContent += `\n"TOTAL","","","","R$ ${total}",""\n`;
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    this.downloadFile(blob, 'lista_de_compras.csv');
-    this.showSuccess('Arquivo Excel exportado com sucesso!');
+    try {
+      // Criar estrutura CSV melhorada
+      let csvContent = '\uFEFF'; // BOM para UTF-8
+      
+      // Cabeçalho do relatório
+      csvContent += 'LISTA DE COMPRAS INTELIGENTE\n';
+      csvContent += `Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}\n`;
+      csvContent += '\n';
+      
+      // Resumo estatístico
+      const totalItems = this.items.length;
+      const completedItems = this.items.filter(item => item.purchased).length;
+      const pendingItems = totalItems - completedItems;
+      const totalValue = this.calculateTotal();
+      
+      csvContent += 'RESUMO GERAL\n';
+      csvContent += 'Métrica,Valor\n';
+      csvContent += `"Total de Itens","${totalItems}"\n`;
+      csvContent += `"Itens Comprados","${completedItems}"\n`;
+      csvContent += `"Itens Pendentes","${pendingItems}"\n`;
+      csvContent += `"Valor Total","R$ ${totalValue.toFixed(2).replace('.', ',')}"\n`;
+      csvContent += '\n';
+      
+      // Lista detalhada por categoria
+      csvContent += 'LISTA DETALHADA POR CATEGORIA\n';
+      csvContent += '\n';
+      
+      const categories = this.groupItemsByCategory();
+      
+      Object.keys(categories).forEach(category => {
+        const categoryItems = categories[category];
+        const categoryTotal = categoryItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        // Cabeçalho da categoria
+        csvContent += `CATEGORIA: ${category.toUpperCase()}\n`;
+        csvContent += `Itens nesta categoria: ${categoryItems.length}\n`;
+        csvContent += `Valor da categoria: R$ ${categoryTotal.toFixed(2).replace('.', ',')}\n`;
+        csvContent += '\n';
+        
+        // Cabeçalho da tabela
+        csvContent += 'Status,Item,Quantidade,Unidade,Preço Unitário,Subtotal,Data Criação\n';
+        
+        // Itens da categoria
+        categoryItems.forEach(item => {
+          const status = item.purchased ? 'Comprado' : 'Pendente';
+          const priceUnit = `R$ ${item.price.toFixed(2).replace('.', ',')}`;
+          const subtotal = `R$ ${(item.price * item.quantity).toFixed(2).replace('.', ',')}`;
+          const createdDate = new Date(item.createdAt).toLocaleDateString('pt-BR');
+          
+          csvContent += `"${status}","${item.text}","${item.quantity}","${item.unit}","${priceUnit}","${subtotal}","${createdDate}"\n`;
+        });
+        
+        csvContent += '\n';
+      });
+      
+      // Resumo por categoria
+      csvContent += 'RESUMO POR CATEGORIA\n';
+      csvContent += 'Categoria,Total de Itens,Itens Comprados,Itens Pendentes,Valor Total\n';
+      
+      Object.keys(categories).forEach(category => {
+        const categoryItems = categories[category];
+        const totalCat = categoryItems.length;
+        const completedCat = categoryItems.filter(item => item.purchased).length;
+        const pendingCat = totalCat - completedCat;
+        const valueCat = categoryItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const valueFormatted = `R$ ${valueCat.toFixed(2).replace('.', ',')}`;
+        
+        csvContent += `"${category}","${totalCat}","${completedCat}","${pendingCat}","${valueFormatted}"\n`;
+      });
+      
+      // Criar e baixar arquivo
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+      const fileName = `lista_compras_${new Date().toISOString().split('T')[0]}.csv`;
+      this.downloadFile(blob, fileName);
+      this.showSuccess('Arquivo Excel exportado com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro ao gerar Excel:', error);
+      this.showError('Erro ao gerar arquivo Excel. Tente novamente.');
+    }
   }
 
-  generateExportContent(format) {
-    let content = "LISTA DE COMPRAS\n";
-    content += "================\n\n";
-    
-    content += `Data: ${new Date().toLocaleDateString('pt-BR')}\n`;
-    content += `Total de itens: ${this.items.length}\n\n`;
-    
-    // Agrupar por categoria
-    const categories = {};
-    this.items.forEach(item => {
-      if (!categories[item.category]) {
-        categories[item.category] = [];
-      }
-      categories[item.category].push(item);
-    });
-    
-    Object.keys(categories).forEach(category => {
-      content += `${category.toUpperCase()}\n`;
-      content += "-".repeat(category.length) + "\n";
-      
-      categories[category].forEach(item => {
-        const status = item.purchased ? "[X]" : "[ ]";
-        content += `${status} ${item.text} - ${item.quantity} ${item.unit}`;
-        if (item.price > 0) {
-          content += ` - R$ ${item.price.toFixed(2)}`;
-        }
-        content += "\n";
-      });
-      content += "\n";
-    });
-    
-    const total = this.calculateTotal();
-    if (total > 0) {
-      content += `TOTAL: R$ ${total.toFixed(2)}\n`;
+  // Exportação para TXT
+  exportToTxt() {
+    if (this.items.length === 0) {
+      this.showError('A lista está vazia.');
+      return;
     }
-    
-    return content;
+
+    try {
+      let content = '';
+      
+      // Cabeçalho
+      content += '╔══════════════════════════════════════════════════════════╗\n';
+      content += '║                 LISTA DE COMPRAS INTELIGENTE             ║\n';
+      content += '╚══════════════════════════════════════════════════════════╝\n\n';
+      
+      // Informações do relatório
+      const now = new Date();
+      content += `📅 Data: ${now.toLocaleDateString('pt-BR')}\n`;
+      content += `🕐 Hora: ${now.toLocaleTimeString('pt-BR')}\n\n`;
+      
+      // Resumo estatístico
+      const totalItems = this.items.length;
+      const completedItems = this.items.filter(item => item.purchased).length;
+      const pendingItems = totalItems - completedItems;
+      const totalValue = this.calculateTotal();
+      
+      content += '📊 RESUMO GERAL\n';
+      content += '═'.repeat(50) + '\n';
+      content += `• Total de itens: ${totalItems}\n`;
+      content += `• Itens comprados: ${completedItems}\n`;
+      content += `• Itens pendentes: ${pendingItems}\n`;
+      content += `• Valor total: R$ ${totalValue.toFixed(2).replace('.', ',')}\n\n`;
+      
+      // Lista por categoria
+      const categories = this.groupItemsByCategory();
+      
+      Object.keys(categories).forEach(category => {
+        const categoryItems = categories[category];
+        const categoryTotal = categoryItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        content += `${this.getCategoryIcon(category)} ${category.toUpperCase()}\n`;
+        content += '─'.repeat(category.length + 5) + '\n';
+        content += `📦 ${categoryItems.length} itens • 💰 R$ ${categoryTotal.toFixed(2).replace('.', ',')}\n\n`;
+        
+        categoryItems.forEach((item, index) => {
+          const status = item.purchased ? '✅' : '⭕';
+          const number = (index + 1).toString().padStart(2, '0');
+          const subtotal = (item.price * item.quantity).toFixed(2).replace('.', ',');
+          
+          content += `${number}. ${status} ${item.text}\n`;
+          content += `    📏 ${item.quantity} ${item.unit} • 💵 R$ ${item.price.toFixed(2).replace('.', ',')} • 🧮 R$ ${subtotal}\n`;
+          
+          if (item.purchased) {
+            content += '    ✨ Item já foi comprado\n';
+          }
+          content += '\n';
+        });
+      });
+      
+      // Rodapé
+      content += '═'.repeat(60) + '\n';
+      content += '📱 Gerado por Lista de Compras Inteligente\n';
+      content += `🔗 github.com/Erick-Lim-Souza/Lista_de_Compras\n`;
+      
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const fileName = `lista_compras_${new Date().toISOString().split('T')[0]}.txt`;
+      this.downloadFile(blob, fileName);
+      this.showSuccess('Arquivo TXT exportado com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro ao gerar TXT:', error);
+      this.showError('Erro ao gerar arquivo TXT. Tente novamente.');
+    }
   }
 
   downloadFile(blob, filename) {
