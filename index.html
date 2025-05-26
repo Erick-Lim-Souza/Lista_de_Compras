@@ -27,121 +27,164 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <div class="container">
-    <header class="header">
-      <h1>🛒 Lista de Compras</h1>
-      <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
-        <span class="theme-icon">🌙</span>
-      </button>
-    </header>
-    
-    <form class="input-form" id="itemForm">
-      <div class="input-group">
-        <div class="input-field">
-          <label for="itemInput">Item</label>
-          <input type="text" id="itemInput" placeholder="Digite o nome do item..." required>
-        </div>
-        
-        <div class="input-field">
-          <label for="categorySelect">Categoria</label>
-          <select id="categorySelect">
-            <option value="Alimentos">🍎 Alimentos</option>
-            <option value="Limpeza">🧽 Limpeza</option>
-            <option value="Higiene">🧴 Higiene</option>
-            <option value="Bebidas">🥤 Bebidas</option>
-            <option value="Outros">📦 Outros</option>
-          </select>
-        </div>
-      </div>
+    <div class="container">
+        <header class="header">
+            <h1>🛒 Lista de Compras</h1>
+            <div class="header-actions">
+                <button id="historyButton" class="btn btn-secondary btn-sm" title="Gerenciar Histórico">
+                    📋 Histórico
+                </button>
+                <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </header>
 
-      <div class="input-group">
-        <div class="input-field">
-          <label for="quantityInput">Quantidade</label>
-          <input type="number" id="quantityInput" placeholder="1" min="0.1" step="0.1" value="1">
+        <div class="list-management">
+            <div class="list-info">
+                <div class="current-list">
+                    📝 <span id="currentListName">Lista Atual</span>
+                </div>
+                <div class="list-actions">
+                    <button id="saveListButton" class="btn btn-primary btn-sm">
+                        💾 Salvar Lista
+                    </button>
+                    <button id="newListButton" class="btn btn-secondary btn-sm">
+                        📄 Nova Lista
+                    </button>
+                </div>
+            </div>
         </div>
-        
-        <div class="input-field">
-          <label for="unitSelect">Unidade</label>
-          <select id="unitSelect">
-            <option value="unidade">Unidade</option>
-            <option value="kg">Kg</option>
-            <option value="g">Gramas</option>
-            <option value="l">Litros</option>
-            <option value="ml">ml</option>
-            <option value="pacote">Pacote</option>
-          </select>
-        </div>
-        
-        <div class="input-field">
-          <label for="priceInput">Preço (R$)</label>
-          <input type="number" id="priceInput" placeholder="0.00" min="0" step="0.01">
-        </div>
-      </div>
 
-      <button type="submit" id="addButton" class="btn btn-primary">
-        ➕ Adicionar Item
-      </button>
-    </form>
+        <form class="input-form" id="itemForm">
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="itemInput">Item</label>
+                    <input type="text" id="itemInput" placeholder="Digite o nome do item..." required>
+                </div>
+                <div class="input-field">
+                    <label for="categorySelect">Categoria</label>
+                    <select id="categorySelect">
+                        <option value="Alimentos">🍎 Alimentos</option>
+                        <option value="Limpeza">🧽 Limpeza</option>
+                        <option value="Higiene">🧴 Higiene</option>
+                        <option value="Bebidas">🥤 Bebidas</option>
+                        <option value="Outros">📦 Outros</option>
+                    </select>
+                </div>
+            </div>
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="quantityInput">Quantidade</label>
+                    <input type="number" id="quantityInput" placeholder="1" min="0.1" step="0.1" value="1">
+                </div>
+                <div class="input-field">
+                    <label for="unitSelect">Unidade</label>
+                    <select id="unitSelect">
+                        <option value="unidade">Unidade</option>
+                        <option value="kg">Kg</option>
+                        <option value="g">Gramas</option>
+                        <option value="l">Litros</option>
+                        <option value="ml">ml</option>
+                        <option value="pacote">Pacote</option>
+                    </select>
+                </div>
+                <div class="input-field">
+                    <label for="priceInput">Preço (R$)</label>
+                    <input type="number" id="priceInput" placeholder="0.00" min="0" step="0.01">
+                </div>
+            </div>
+            <button type="submit" id="addButton" class="btn btn-primary">
+                ➕ Adicionar Item
+            </button>
+        </form>
 
-    <div class="stats-bar">
-      <div class="stat-item">
-        <span class="stat-label">Total de Itens:</span>
-        <span id="totalItems" class="stat-value">0</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">Valor Total:</span>
-        <span id="totalPrice" class="stat-value">R$ 0,00</span>
-      </div>
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-label">Total de Itens:</span>
+                <span id="totalItems" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Valor Total:</span>
+                <span id="totalPrice" class="stat-value">R$ 0,00</span>
+            </div>
+        </div>
+
+        <div class="filter-section">
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">Todos</button>
+                <button class="filter-btn" data-filter="pending">Pendentes</button>
+                <button class="filter-btn" data-filter="completed">Comprados</button>
+            </div>
+        </div>
+
+        <div class="list-container">
+            <ul id="itemList" class="item-list"></ul>
+            <div id="emptyState" class="empty-state">
+                <div class="empty-icon">🛒</div>
+                <h3>Lista vazia</h3>
+                <p>Adicione seu primeiro item para começar!</p>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <div class="button-group">
+                <button id="clearAllButton" class="btn btn-danger">
+                    🗑️ Limpar Lista
+                </button>
+                <button id="shareButton" class="btn btn-secondary">
+                    📤 Compartilhar
+                </button>
+            </div>
+            <div class="export-buttons">
+                <h3>Exportar Lista</h3>
+                <div class="export-group">
+                    <button id="exportTxt" class="btn btn-export">📄 TXT</button>
+                    <button id="exportPdf" class="btn btn-export">📑 PDF</button>
+                    <button id="exportExcel" class="btn btn-export">📊 Excel</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="filter-section">
-      <div class="filter-buttons">
-        <button class="filter-btn active" data-filter="all">Todos</button>
-        <button class="filter-btn" data-filter="pending">Pendentes</button>
-        <button class="filter-btn" data-filter="completed">Comprados</button>
-      </div>
-    </div>
-
-    <div class="list-container">
-      <ul id="itemList" class="item-list"></ul>
-      <div id="emptyState" class="empty-state">
-        <div class="empty-icon">🛒</div>
-        <h3>Lista vazia</h3>
-        <p>Adicione seu primeiro item para começar!</p>
-      </div>
-    </div>
-
-    <div class="action-buttons">
-      <div class="button-group">
-        <button id="clearAllButton" class="btn btn-danger">
-          🗑️ Limpar Lista
-        </button>
-        <button id="shareButton" class="btn btn-secondary">
-          📤 Compartilhar
-        </button>
-      </div>
-      
-      <div class="export-buttons">
-        <h3>Exportar Lista</h3>
-        <div class="export-group">
-          <button id="exportTxt" class="btn btn-export">📄 TXT</button>
-          <button id="exportPdf" class="btn btn-export">📑 PDF</button>
-          <button id="exportExcel" class="btn btn-export">📊 Excel</button>
+    <!-- Modal de Confirmação -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <h3>Confirmar ação</h3>
+            <p id="confirmMessage">Tem certeza que deseja continuar?</p>
+            <div class="modal-buttons">
+                <button id="confirmCancel" class="btn btn-secondary">Cancelar</button>
+                <button id="confirmOk" class="btn btn-danger">Confirmar</button>
+            </div>
         </div>
-      </div>
     </div>
-  </div>
 
-  <div id="confirmModal" class="modal">
-    <div class="modal-content">
-      <h3>Confirmar ação</h3>
-      <p id="confirmMessage">Tem certeza que deseja continuar?</p>
-      <div class="modal-buttons">
-        <button id="confirmCancel" class="btn btn-secondary">Cancelar</button>
-        <button id="confirmOk" class="btn btn-danger">Confirmar</button>
-      </div>
+    <!-- Modal de Histórico -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <h3>📋 Histórico de Listas</h3>
+            <div id="historyList" class="history-list">
+                <!-- Listas serão carregadas aqui -->
+            </div>
+            <div class="modal-buttons">
+                <button id="historyClose" class="btn btn-secondary">Fechar</button>
+            </div>
+        </div>
     </div>
-  </div>
+
+    <!-- Modal de Salvar Lista -->
+    <div id="saveListModal" class="modal">
+        <div class="modal-content">
+            <h3>💾 Salvar Lista</h3>
+            <div class="new-list-form">
+                <input type="text" id="listNameInput" placeholder="Nome da lista..." maxlength="50">
+                <div class="modal-buttons">
+                    <button id="saveCancel" class="btn btn-secondary">Cancelar</button>
+                    <button id="saveConfirm" class="btn btn-primary">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
   <script src="script.js"></script>
 </body>
