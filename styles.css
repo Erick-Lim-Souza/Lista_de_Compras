@@ -732,3 +732,38 @@
         .toast {
             animation: slideIn 0.3s ease;
         }
+
+        .modal.show {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+#accessModal .modal-content,
+#feedbackForm .modal-content,
+#testerList .modal-content {
+  max-width: 400px;
+}
+        #accessModal .modal-content h3,
+        #feedbackForm .modal-content h3,
+        #testerList .modal-content h3 {
+            font-size: 1.25rem;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        #accessModal .modal-content p,
+        #feedbackForm .modal-content p,
+        #testerList .modal-content p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        #accessModal .modal-buttons,
+        #feedbackForm .modal-buttons,
+        #testerList .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
