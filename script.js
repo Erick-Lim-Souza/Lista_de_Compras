@@ -753,3 +753,125 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+
+// Verifica se o usuário já se identificou
+function initAccess() {
+  const user = JSON.parse(localStorage.getItem('userInfo'));
+  if (!user) {
+    document.getElementById('accessModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+  } else {
+    app.render(); // ou startApp()
+  }
+}
+
+// Submete dados de nome/e-mail
+document.getElementById('accessForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = document.getElementById('userName').value.trim();
+  const email = document.getElementById('userEmail').value.trim();
+
+  if (!name || !email) return;
+
+  const userInfo = { name, email };
+  localStorage.setItem('userInfo', JSON.stringify(userInfo));
+
+  // Atualiza lista de testadores
+  let users = JSON.parse(localStorage.getItem('userList') || '[]');
+  users.push(userInfo);
+  localStorage.setItem('userList', JSON.stringify(users));
+
+  document.getElementById('accessModal').classList.remove('show');
+  document.body.style.overflow = '';
+  app.render(); // ou startApp()
+});
+
+// Mascarar e-mail
+function maskEmail(email) {
+  const [name, domain] = email.split('@');
+  return name.slice(0, 2) + '***@' + domain;
+}
+
+// Mostrar lista de testadores
+function showTesterList() {
+  const list = JSON.parse(localStorage.getItem('userList') || '[]');
+  const ul = document.getElementById('testerDisplay');
+  ul.innerHTML = '';
+  list.forEach(u => {
+    const li = document.createElement('li');
+    li.textContent = `${u.name} — ${maskEmail(u.email)}`;
+    ul.appendChild(li);
+  });
+  showModal('testerList');
+}
+
+// Modal genérico
+function showModal(id) {
+  document.getElementById(id).classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function hideModal(id) {
+  document.getElementById(id).classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// Enviar feedback
+function sendFeedback() {
+  const input = document.getElementById('feedbackInput');
+  const feedback = input.value.trim();
+  if (!feedback) return alert('Digite algo');
+
+  let all = JSON.parse(localStorage.getItem('feedbackList') || '[]');
+  const user = JSON.parse(localStorage.getItem('userInfo'));
+  all.push({ name: user.name, email: user.email, feedback, date: new Date().toISOString() });
+  localStorage.setItem('feedbackList', JSON.stringify(all));
+
+  input.value = '';
+  hideModal('feedbackForm');
+  alert('Feedback enviado! (apenas visível localmente)');
+}
+
+function showAdminOptionsIfAllowed() {
+  const user = JSON.parse(localStorage.getItem('userInfo'));
+  const allowedEmails = ['erickdelimasouza@gmail.com', 'erick.devzone@gmail.com'];
+
+  if (user && allowedEmails.includes(user.email)) {
+    const adminBtn = document.createElement('button');
+    adminBtn.textContent = '📬 Ver Feedbacks';
+    adminBtn.className = 'btn btn-secondary';
+    adminBtn.onclick = showAllFeedbacks;
+    adminBtn.style.position = 'fixed';
+    adminBtn.style.bottom = '80px';
+    adminBtn.style.right = '20px';
+    adminBtn.style.zIndex = '9999';
+    document.body.appendChild(adminBtn);
+  }
+}
+
+function showAllFeedbacks() {
+  const list = JSON.parse(localStorage.getItem('feedbackList') || '[]');
+  const ul = document.getElementById('allFeedbacksList');
+  ul.innerHTML = '';
+
+  if (list.length === 0) {
+    ul.innerHTML = '<li>Nenhum feedback registrado.</li>';
+  } else {
+    list.forEach(f => {
+      const li = document.createElement('li');
+      li.style.marginBottom = '12px';
+      li.innerHTML = `
+        <strong>${f.name}</strong> (${f.email})<br>
+        <em>${new Date(f.date).toLocaleString()}</em><br>
+        ${f.feedback}
+      `;
+      ul.appendChild(li);
+    });
+  }
+
+  showModal('allFeedbacksModal');
+}
+
+initAccess();
+showAdminOptionsIfAllowed();
+// Shopping List Application
+// script.js
