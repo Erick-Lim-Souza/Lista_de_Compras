@@ -2,7 +2,7 @@
   "name": "Lista de Compras Inteligente",
   "short_name": "ListaCompras",
   "description": "Gerencie suas compras de forma prática e offline!",
-  "start_url": "/",
+  "start_url": "./index.html"
   "display": "standalone",
   "background_color": "#4f46e5",
   "theme_color": "#4f46e5",
