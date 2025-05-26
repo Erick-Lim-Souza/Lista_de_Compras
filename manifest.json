@@ -1,0 +1,41 @@
+{
+  "name": "Lista de Compras Inteligente",
+  "short_name": "ListaCompras",
+  "description": "Gerencie suas compras de forma prática e offline!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4f46e5",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
