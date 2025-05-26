@@ -958,3 +958,46 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+
+// Botão de instalação
+let deferredPrompt;
+const installButton = document.createElement('button');
+installButton.className = 'btn btn-primary';
+installButton.textContent = '📲 Instalar App';
+installButton.style.margin = '10px auto';
+installButton.style.display = 'none';
+
+document.querySelector('.action-buttons').prepend(installButton);
+
+// Mostra o botão quando o app pode ser instalado
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installButton.style.display = 'block';
+  
+  installButton.addEventListener('click', () => {
+    installButton.style.display = 'none';
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+    });
+  });
+});
+
+// Esconde o botão após instalação
+window.addEventListener('appinstalled', () => {
+  installButton.style.display = 'none';
+});
+
+// Registrar Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('SW registrado:', registration);
+      })
+      .catch(error => {
+        console.log('Falha no SW:', error);
+      });
+  });
+}
