@@ -538,7 +538,13 @@
                     const li = document.createElement('li');
                     li.className = item.completed ? 'completed' : '';
                     
-                    const price = item.price > 0 ? `<span class="item-price">R$ ${item.price.toFixed(2)}</span>` : '';
+                    let quantity = item.quantity;
+if (item.unit === 'g') quantity = quantity / 1000;
+if (item.unit === 'ml') quantity = quantity / 1000;
+const totalItem = quantity * item.price;
+const price = item.price > 0
+  ? `<span class="item-price">R$ ${totalItem.toFixed(2)}</span>`
+  : '';
                     
                     li.innerHTML = `
                         <input type="checkbox" class="item-checkbox" ${item.completed ? 'checked' : ''} 
@@ -588,8 +594,17 @@
 
             // Calcular total
             calculateTotal() {
-                return this.items.reduce((total, item) => total + (item.price || 0), 0);
-            }
+        return this.items.reduce((total, item) => {
+            let quantity = parseFloat(item.quantity) || 1;
+            const price = parseFloat(item.price) || 0;
+
+            // Conversões automáticas
+            if (item.unit === 'g') quantity = quantity / 1000;
+            if (item.unit === 'ml') quantity = quantity / 1000;
+
+            return total + (quantity * price);
+        }, 0);
+    }
 
             // Renderizar estado vazio
             renderEmptyState() {
