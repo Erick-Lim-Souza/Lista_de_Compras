@@ -8,34 +8,34 @@
   "theme_color": "#4f46e5",
   "icons": [
     {
-      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "src": "img/icons/icons8-cesta-de-compras-48.ico",
       "sizes": "72x72",
-      "type": "image/png"
+      "type": "image/ico"
     },
     {
-      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "src": "img/icons/icons8-cesta-de-compras-48.ico",
       "sizes": "96x96",
-      "type": "image/png"
+      "type": "image/ico"
     },
     {
-      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "src": "img/icons/icons8-cesta-de-compras-48.ico",
       "sizes": "128x128",
-      "type": "image/png"
+      "type": "image/ico"
     },
     {
-      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "src": "img/icons/icons8-cesta-de-compras-48.ico",
       "sizes": "144x144",
-      "type": "image/png"
+      "type": "image/ico"
     },
     {
-      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "src": "img/icons/icons8-cesta-de-compras-48.ico",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/ico"
     },
     {
-      "src": "img/icons/icons8-cesta-de-compras-48.png",
+      "src": "img/icons/icons8-cesta-de-compras-48.ico",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/ico"
     }
   ]
 }
