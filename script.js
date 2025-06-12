@@ -1203,36 +1203,37 @@ function sendFeedback() {
     app.showToast('Feedback enviado com sucesso!');
 }
 
+// NESSE CAMPO COMENTADO -- ESSA FUNÇÃO FORÇA COLOCAR NOME E EMAIL PARA ACESSAR
 // Gerenciar acesso
-document.getElementById('accessForm').addEventListener('submit', function(e) {
-    e.preventDefault();
+//document.getElementById('accessForm').addEventListener('submit', function(e) {
+    //e.preventDefault();
     
-    const name = document.getElementById('userName').value.trim();
-    const email = document.getElementById('userEmail').value.trim();
+    //const name = document.getElementById('userName').value.trim();
+    //const email = document.getElementById('userEmail').value.trim();
     
-    if (!name || !email) {
-        app.showToast('Preencha todos os campos!');
-        return;
-    }
+    //if (!name || !email) {
+        //app.showToast('Preencha todos os campos!');
+        //return;
+    //}
     
-    const data = app.getStorageData();
-    if (!data.testers) data.testers = [];
+   // const data = app.getStorageData();
+   // if (!data.testers) data.testers = [];
     
-    const existingTester = data.testers.find(t => t.email === email);
-    if (!existingTester) {
-        data.testers.push({
-            name,
-            email,
-            date: new Date().toISOString()
-        });
-    }
+   // const existingTester = data.testers.find(t => t.email === email);
+    //if (!existingTester) {
+       // data.testers.push({
+            //name,
+           // email,
+            //date: new Date().toISOString()
+        //});
+    //}
     
-    data.currentUser = name;
-    app.saveStorageData(data);
+    //data.currentUser = name;
+    //app.saveStorageData(data);
     
-    hideModal('accessModal');
-    app.showToast(`Bem-vindo, ${name}!`);
-});
+    //hideModal('accessModal');
+    //app.showToast(`Bem-vindo, ${name}!`);
+//});
 
 // Adicionar estilos CSS para comparação
 const style = document.createElement('style');
