@@ -4,8 +4,8 @@ const ASSETS = [
   '/index.html',
   '/styles.css',
   '/script.js',
-  '/assets/icons/icon-192x192.ico',
-  '/assets/icons/icon-512x512.ico'
+  '/assets/icons/icon-256x256.png',
+  '/assets/icons/icon-512x512.png'
 ];
 
 // Instala o Service Worker
