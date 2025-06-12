@@ -34,6 +34,12 @@
                 <button id="historyButton" class="btn btn-secondary btn-sm" title="Gerenciar Histórico">
                     📋 Histórico
                 </button>
+                <button id="versionButton" class="btn btn-secondary btn-sm" title="Versão">
+                    ℹ️ Versão
+                </button>
+                <button id="configButton" class="btn btn-secondary btn-sm" title="Configurações">
+                    ⚙️ Config
+                </button>
                 <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
                     <span class="theme-icon">🌙</span>
                 </button>
@@ -66,6 +72,8 @@
                     <label for="categorySelect">Categoria</label>
                     <select id="categorySelect">
                         <option value="Alimentos">🍎 Alimentos</option>
+                        <option value="Hortifruti">🥦 Hortifruti</option>
+                        <option value="Carnes">🍖 Carnes</option>
                         <option value="Limpeza">🧽 Limpeza</option>
                         <option value="Higiene">🧴 Higiene</option>
                         <option value="Bebidas">🥤 Bebidas</option>
@@ -76,7 +84,7 @@
             <div class="input-group">
                 <div class="input-field">
                     <label for="quantityInput">Quantidade</label>
-                    <input type="number" id="quantityInput" placeholder="1" min="0.1" step="0.1" value="1">
+                    <input type="number" id="quantityInput" placeholder="1" min="0.001" step="0.001" value="1">
                 </div>
                 <div class="input-field">
                     <label for="unitSelect">Unidade</label>
@@ -87,11 +95,19 @@
                         <option value="l">Litros</option>
                         <option value="ml">ml</option>
                         <option value="pacote">Pacote</option>
+                        <option value="caixa">Caixa</option>
+                        <option value="dúzia">Dúzia</option>
                     </select>
                 </div>
+            </div>
+            <div class="input-group">
                 <div class="input-field">
-                    <label for="priceInput">Preço (R$)</label>
-                    <input type="number" id="priceInput" placeholder="0.00" min="0" step="0.01">
+                    <label for="priceWholesaleInput">Preço Atacado (R$)</label>
+                    <input type="number" id="priceWholesaleInput" placeholder="0.00" min="0" step="0.01">
+                </div>
+                <div class="input-field">
+                    <label for="priceRetailInput">Preço Varejo (R$)</label>
+                    <input type="number" id="priceRetailInput" placeholder="0.00" min="0" step="0.01">
                 </div>
             </div>
             <button type="submit" id="addButton" class="btn btn-primary">
@@ -105,8 +121,12 @@
                 <span id="totalItems" class="stat-value">0</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">Valor Total:</span>
-                <span id="totalPrice" class="stat-value">R$ 0,00</span>
+                <span class="stat-label">Total Atacado:</span>
+                <span id="totalWholesale" class="stat-value">R$ 0,00</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Total Varejo:</span>
+                <span id="totalRetail" class="stat-value">R$ 0,00</span>
             </div>
         </div>
 
@@ -135,6 +155,9 @@
                 <button id="shareButton" class="btn btn-secondary">
                     📤 Compartilhar
                 </button>
+                <button id="compareListsButton" class="btn btn-primary">
+                    📊 Comparar Listas
+                </button>
             </div>
             <div class="export-buttons">
                 <h3>Exportar Lista</h3>
@@ -143,6 +166,34 @@
                     <button id="exportPdf" class="btn btn-export">📑 PDF</button>
                     <button id="exportExcel" class="btn btn-export">📊 Excel</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Comparação de Listas -->
+    <div id="compareModal" class="modal">
+        <div class="modal-content modal-large">
+            <h3>📊 Comparar Listas</h3>
+            <div class="compare-selection">
+                <div class="compare-field">
+                    <label for="compareList1">Lista 1:</label>
+                    <select id="compareList1" class="compare-select">
+                        <option value="">Selecione uma lista...</option>
+                    </select>
+                </div>
+                <div class="compare-field">
+                    <label for="compareList2">Lista 2:</label>
+                    <select id="compareList2" class="compare-select">
+                        <option value="">Selecione uma lista...</option>
+                    </select>
+                </div>
+            </div>
+            <div id="compareResults" class="compare-results">
+                <!-- Resultados da comparação serão exibidos aqui -->
+            </div>
+            <div class="modal-buttons">
+                <button id="compareExecute" class="btn btn-primary">Comparar</button>
+                <button id="compareClose" class="btn btn-secondary">Fechar</button>
             </div>
         </div>
     </div>
@@ -182,6 +233,35 @@
                     <button id="saveCancel" class="btn btn-secondary">Cancelar</button>
                     <button id="saveConfirm" class="btn btn-primary">Salvar</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Configurações -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <h3>⚙️ Configurações de Categorias</h3>
+            <div class="config-content">
+                <div class="config-section">
+                    <h4>Tipo de Lista Atual: <span id="currentListTypeDisplay">Supermercado</span></h4>
+                    <button id="changeListType" class="btn btn-secondary">Alterar Tipo de Lista</button>
+                </div>
+                
+                <div class="config-section">
+                    <h4>Categorias Personalizadas</h4>
+                    <div id="customCategoriesList" class="custom-categories">
+                        <!-- Categorias personalizadas serão listadas aqui -->
+                    </div>
+                    
+                    <div class="add-category-form">
+                        <input type="text" id="newCategoryName" placeholder="Nome da categoria..." maxlength="30">
+                        <input type="text" id="newCategoryEmoji" placeholder="Emoji (ex: 🍎)" maxlength="2">
+                        <button id="addCustomCategory" class="btn btn-primary">Adicionar Categoria</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="configClose" class="btn btn-secondary">Fechar</button>
             </div>
         </div>
     </div>
@@ -235,9 +315,11 @@
 </div>
 
     <footer class="footer">
-        <p>Desenvolvido por Erick de Lima Souza - 2025</p>
+        <p>Desenvolvido por Erick de Lima Souza <a href="https://ericklima-dev.netlify.app/">By. <strong>Green Monster Project</strong></a> &copy; 2025</p>
     </footer>
+    </div>
 
   <script src="script.js"></script>
 </body>
 </html>
+
