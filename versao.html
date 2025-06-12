@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gerencie sua lista de compras de forma inteligente e prática. Adicione itens, categorize-os, e acompanhe o total da sua compra.">
+  <meta name="keywords" content="lista de compras, gerenciamento de compras, app de compras, lista inteligente, compras online">
+  <!-- Favicon padrão -->
+<link rel="icon" href="img/icons/icons8-cesta-de-compras-128.ico" type="image/x-icon">
+
+<!-- Favicon para dispositivos Apple -->
+<link rel="apple-touch-icon" sizes="180x180" href="img/icons/icons8-cesta-de-compras-128.ico">
+
+<!-- Favicon moderno (SVG) -->
+<link rel="icon" type="image/svg+xml" href="img/icons/icons8-cesta-de-compras-128.ico">
+
+<!-- Configuração para Windows/Edge -->
+<meta name="msapplication-TileColor" content="#4f46e5">
+<meta name="msapplication-TileImage" content="img/icons/icons8-cesta-de-compras-128.ico">
+
+  <title>Lista de Compras Inteligente</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🛒 Lista de Compras</h1>
+            <div class="header-actions">
+                <button id="homeButton" class="btn header-button" title="Home">
+                  🏠 Home
+                </button>
+                <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </header>
+
+            <!-- Sobre a Aplicação -->
+        <section class="about">
+            <h2>Sobre a Aplicação</h2>
+            <p>Esta aplicação foi desenvolvida para facilitar o gerenciamento de suas compras. Com ela, você pode adicionar itens, categorizá-los e acompanhar o total da sua compra de forma prática e eficiente.</p>
+            <p>Você pode adicionar itens à sua lista, definir categorias, e até mesmo calcular o total da compra. A interface é intuitiva e fácil de usar, ideal para quem deseja otimizar suas compras diárias.</p>
+            <p>Além disso, a aplicação permite que você visualize o histórico de compras, facilitando o acompanhamento dos seus gastos ao longo do tempo.</p>
+        </section>
+
+        <!-- Como Usar a Aplicação -->
+        <section class="how-to-use">
+            <h2>Como Usar a Aplicação</h2>
+            <p>Para utilizar a aplicação, siga os passos abaixo:</p>
+            <ol>
+                <li>Abra a aplicação em seu navegador.</li>
+                <li>Escolha o tipo de lista que deseja montar, assim a tela de lista de compras será carregada.</li>
+                <li>Clique no botão "Adicionar Item" para incluir um novo item na sua lista de compras.</li>
+                <li>Preencha os campos necessários, como nome do item, categoria, quantidade e preço.</li>
+                <li>Você pode adicionar itens em diferentes categorias para melhor organização.</li>
+                <li>Após adicionar todos os itens, verifique o total da compra exibido na parte inferior da tela.</li>
+                <li>Use o botão "Gerenciar Histórico" para visualizar suas compras anteriores.</li>
+                <li>Para alterar o tema da aplicação, clique no ícone de tema no canto superior direito.</li>
+                <li>Para exportar sua lista de compras, utilize a opção de exportação disponível no menu.</li>
+            </ol>
+            <p>Se precisar de ajuda, consulte a seção de ajuda ou entre em contato com o suporte.</p>
+        </section>
+        <!-- Recursos da Aplicação -->
+        <section class="features">
+            <h2>Recursos da Aplicação</h2>
+            <ul>
+                <li>Adição de itens com nome, categoria, quantidade e preço.</li>
+                <li>Cálculo automático do total da compra.</li>
+                <li>Organização por categorias para facilitar a visualização.</li>
+                <li>Histórico de compras para acompanhamento de gastos.</li>
+                <li>Interface intuitiva e responsiva.</li>
+                <li>Exportação da lista de compras em formato PDF.</li>
+                <li>Comparativo de preços por unidade para itens com diferentes quantidades.</li>
+                <li>Comparativo entre compras anteriores e atuais.</li>
+                <li>Campos de valor por Varejo e Atacado.</li>
+                <li>🛒 Escolha o tipo de lista</li>
+            </ul>
+        </section>
+            <!-- Versão da Aplicação -->   
+        <section class="version">
+            <h2>Versão da Aplicação</h2>
+        <p>Esta é a versão 1.0.1 da aplicação Lista de Compras Inteligente. Nesta versão, foram implementadas melhorias na usabilidade e correções de bugs para proporcionar uma experiência mais fluida e eficiente.</p>
+        <p>Novidades desta versão incluem:</p>
+        <ul>
+            <li>Melhorias no calculo KG e preço por unidade.</li>
+            <li>Interface aprimorada para facilitar a adição de itens.</li>
+            <li>Correção de bugs relacionados ao cálculo do total da compra.</li>
+            <li>Comparativo de preços por unidade para itens com diferentes quantidades.</li>
+            <li>Comparativo entre compras anteriores e atuais.</li>
+            <li>Melhorias na acessibilidade e responsividade da interface.</li>
+            <li>Otimização do desempenho da aplicação.</li>
+            <li>Campos de valor por Varejo e Atacado.</li>
+            <li>Opção para 🛒 Escolher o tipo de lista.</li>
+            <li>Botão de configurações para adição de categorias novas e edição das mesmas.</li>
+            <li>Correção na impressão em PDF.</li>
+        </ul>
+        
+
+            <p>Versão: 1.0.1</p>
+            </section>
+
+            <!-- Projetado pelo grupo Green Monster Project -->
+        <section class="features">
+            <h2>Projetado pelo Grupo Green Monster Project</h2>
+            <ul>
+                <p>
+                    O grupo Green Monster Project, é uma iniciativa privada do Dev Full-Stack Erick de Lima Souza, que acredita que a tecnologia deve ser livre, e seguindo essa ideia esta sempre criando e diponibilizando tecnologia na rede.
+                </p>
+                <p>
+                    O web-site Lista de compras é Open source e esta mantida por anuncios na sua plataforma ou de outras plataformas, derivadas do grupo Green Monster Project.
+                </p>
+                <p>
+                    Você pode conhecer outros projetos da <a href="https://ericklima-dev.netlify.app/">By. <strong>Green Monster Project</strong></a>.
+                </p>
+            </ul>
+        </section>     
+
+        
+
+
+
+
+    <footer class="footer">
+        <p>Desenvolvido por Erick de Lima Souza <a href="https://ericklima-dev.netlify.app/">By. <strong>Green Monster Project</strong></a> &copy; 2025</p>
+    </footer>
+    </div>
+ 
+    <script>
+            // Selecionar o ícone do tema
+            const themeIcon = document.querySelector('.theme-icon');
+            // Selecionar o botão de alternância de tema
+            const themeToggle = document.getElementById('darkModeToggle');  
+            // Selecionar o botão de voltar para a home
+            const homeButton = document.getElementById('homeButton');
+            // Carregar tema ao iniciar
+            document.addEventListener('DOMContentLoaded', () => {
+                loadTheme();
+            });
+            // Adicionar evento de clique para alternar tema
+            themeToggle.addEventListener('click', () => {
+                toggleTheme();
+            });
+       
+            // Adicionar evento de clique para voltar para a home
+            homeButton.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+
+    </script>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
