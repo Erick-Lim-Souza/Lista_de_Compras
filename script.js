@@ -41,9 +41,9 @@ class ShoppingList {
 
         // Elementos de exibição
         this.itemList = document.getElementById('itemList');
-        this.totalItems = document.getElementById('totalItems');
-        this.totalWholesale = document.getElementById('totalWholesale');
-        this.totalRetail = document.getElementById('totalRetail');
+        this.totalItems = document.getElementById("totalItems");
+        this.totalGeneral = document.getElementById("totalGeneral");
+        this.totalEconomy = document.getElementById("totalEconomy");
         this.emptyState = document.getElementById('emptyState');
         this.currentListNameEl = document.getElementById('currentListName');
 
@@ -893,20 +893,32 @@ class ShoppingList {
         const totals = this.calculateTotals();
         
         this.totalItems.textContent = totalItems;
-        this.totalWholesale.textContent = `R$ ${this.formatPriceWithDecimals(totals.wholesale)}`;
-        this.totalRetail.textContent = `R$ ${this.formatPriceWithDecimals(totals.retail)}`;
+        this.totalGeneral.textContent = `R$ ${this.formatPriceWithDecimals(totals.general)}`;
+        this.totalEconomy.textContent = `R$ ${this.formatPriceWithDecimals(totals.economy)}`;
     }
 
     // Calcular totais
     calculateTotals() {
-        return this.items.reduce((totals, item) => {
-            const unitPrice = this.calculateUnitPrice(item);
-            
-            totals.wholesale += unitPrice.wholesale;
-            totals.retail += unitPrice.retail;
-            
-            return totals;
-        }, { wholesale: 0, retail: 0 });
+        let totalGeneral = 0;
+        let totalEconomy = 0;
+
+        this.items.forEach(item => {
+            if (!item.completed) {
+                let priceToUse = 0;
+                if (item.priceWholesale > 0) {
+                    priceToUse = item.priceWholesale;
+                } else if (item.priceRetail > 0) {
+                    priceToUse = item.priceRetail;
+                }
+                totalGeneral += priceToUse * item.quantity;
+
+                if (item.priceRetail > 0 && item.priceWholesale > 0) {
+                    totalEconomy += (item.priceRetail - item.priceWholesale) * item.quantity;
+                }
+            }
+        });
+
+        return { general: totalGeneral, economy: totalEconomy };;
     }
 
     // Calcular preço por unidade
@@ -1479,4 +1491,3 @@ if (typeof app !== 'undefined') {
         });
     };
 }
-
