@@ -1,4 +1,4 @@
-* {
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -1299,4 +1299,133 @@
 .header-actions .btn:hover {
     background: rgba(255, 255, 255, 0.3);
     transform: translateY(-1px);
+}
+
+
+
+/* Estilos específicos para versao.html - Cards Layout */
+.version-page .about,
+.version-page .how-to-use,
+.version-page .features,
+.version-page .version {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: 24px;
+    margin: 20px 32px;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.version-page .about:hover,
+.version-page .how-to-use:hover,
+.version-page .features:hover,
+.version-page .version:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.version-page .about h2,
+.version-page .how-to-use h2,
+.version-page .features h2,
+.version-page .version h2 {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 8px;
+}
+
+.version-page .about p,
+.version-page .how-to-use p,
+.version-page .features p,
+.version-page .version p {
+    color: var(--text-primary);
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.version-page .how-to-use ol {
+    padding-left: 20px;
+    color: var(--text-primary);
+}
+
+.version-page .how-to-use ol li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.version-page .features ul,
+.version-page .version ul {
+    padding-left: 20px;
+    color: var(--text-primary);
+}
+
+.version-page .features ul li,
+.version-page .version ul li {
+    margin-bottom: 6px;
+    line-height: 1.5;
+}
+
+.version-page .features ul li::marker {
+    color: var(--primary-color);
+}
+
+.version-page .version ul li::marker {
+    color: var(--success-color);
+}
+
+/* Card específico para Green Monster Project */
+.version-page .features:last-of-type {
+    background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+    color: white;
+    border: none;
+}
+
+.version-page .features:last-of-type h2 {
+    color: white;
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+.version-page .features:last-of-type p {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.version-page .features:last-of-type a {
+    color: white;
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+.version-page .features:last-of-type a:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Responsivo para cards */
+@media (max-width: 768px) {
+    .version-page .about,
+    .version-page .how-to-use,
+    .version-page .features,
+    .version-page .version {
+        margin: 16px 20px;
+        padding: 20px;
+    }
+    
+    .version-page .about h2,
+    .version-page .how-to-use h2,
+    .version-page .features h2,
+    .version-page .version h2 {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .version-page .about,
+    .version-page .how-to-use,
+    .version-page .features,
+    .version-page .version {
+        margin: 12px 16px;
+        padding: 16px;
+    }
 }
