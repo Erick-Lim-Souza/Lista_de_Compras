@@ -1,5 +1,4 @@
- /* Reset e configurações base */
-        * {
+* {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -1301,4 +1300,3 @@
     background: rgba(255, 255, 255, 0.3);
     transform: translateY(-1px);
 }
-
