@@ -121,12 +121,12 @@
                 <span id="totalItems" class="stat-value">0</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">Total Atacado:</span>
-                <span id="totalWholesale" class="stat-value">R$ 0,00</span>
+                <span class="stat-label">Total Geral:</span>
+                <span id="totalGeneral" class="stat-value">R$ 0,00</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">Total Varejo:</span>
-                <span id="totalRetail" class="stat-value">R$ 0,00</span>
+                <span class="stat-label">Economia:</span>
+                <span id="totalEconomy" class="stat-value">R$ 0,00</span>
             </div>
         </div>
 
@@ -266,42 +266,9 @@
         </div>
     </div>
 
-    <!-- Tela de acesso 
-<div id="accessModal" class="modal show">
-  <div class="modal-content">
-    <h3>👋 Olá! Quem está testando?</h3>
-    <form id="accessForm">
-      <input type="text" id="userName" placeholder="Seu nome" required />
-      <input type="email" id="userEmail" placeholder="Seu e-mail" required />
-      <button type="submit" class="btn btn-primary">Entrar</button>
-    </form>
-  </div>
-</div> -->
-
-<!-- Lista de testadores -->
-<div id="testerList" class="modal">
-  <div class="modal-content">
-    <h3>👥 Testadores</h3>
-    <ul id="testerDisplay"></ul>
-    <button onclick="hideModal('testerList')" class="btn btn-secondary">Fechar</button>
-  </div>
-</div>
-
-<!-- Feedback secreto -->
-<div id="feedbackForm" class="modal">
-  <div class="modal-content">
-    <h3>📝 Enviar Feedback (somente para Erick)</h3>
-    <textarea id="feedbackInput" rows="5" placeholder="Escreva seu feedback..."></textarea>
-    <div class="modal-buttons">
-      <button onclick="hideModal('feedbackForm')" class="btn btn-secondary">Cancelar</button>
-      <button onclick="sendFeedback()" class="btn btn-primary">Enviar</button>
-    </div>
-  </div>
-</div>
 
 <!-- Botões flutuantes -->
 <div style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 9999;">
-  <button onclick="showTesterList()" class="btn btn-secondary">👥</button>
   <button onclick="showModal('feedbackForm')" class="btn btn-primary">📝</button>
 </div>
 
