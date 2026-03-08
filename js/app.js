@@ -1,12 +1,13 @@
 /**
  * js/app.js
  * ─────────────────────────────────────────────────────────────
- * Application orchestrator.
- * This file only wires events → delegates ALL work to the modules:
- *   Calculator, Storage, UI, Exporter
- *
- * Required load order (see index.html):
- *   calculator.js → storage.js → ui.js → export.js → app.js
+* Orquestrador de aplicativos.
+* Este arquivo apenas conecta eventos → delega TODO o trabalho aos módulos:
+
+* Calculadora, Armazenamento, Interface do Usuário, Exportador
+*
+* Ordem de carregamento necessária (consulte index.html):
+* calculator.js → storage.js → ui.js → export.js → app.js
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -96,6 +97,7 @@ class ShoppingList {
     this.listNameInput = $('listNameInput');
     this.saveCancel    = $('saveCancel');
     this.saveConfirm   = $('saveConfirm');
+    this.listDateInput = $('listDateInput');
     this.compareModal  = $('compareModal');
     this.compareList1  = $('compareList1');
     this.compareList2  = $('compareList2');
@@ -352,10 +354,37 @@ class ShoppingList {
   // ── History / Save / Load ──────────────────────────────────────
   _showHistory() {
     UI.renderHistory(Storage.getSavedLists(), {
-      onLoad:   idx => this.loadList(idx),
-      onDelete: idx => this.deleteList(idx),
+      onLoad:     idx => this.loadList(idx),
+      onDelete:   idx => this.deleteList(idx),
+      onEditDate: idx => this._editListDate(idx),
     });
     UI.showModal(this.historyModal);
+  }
+
+  _editListDate(index) {
+    const lists = Storage.getSavedLists();
+    const list  = lists[index];
+    if (!list) return;
+
+    // Build a lightweight inline date picker prompt
+    const currentDate = list.date
+      ? new Date(list.date).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+
+    const newDateStr = window.prompt(
+      `Alterar data da lista "${list.name}"
+
+Formato: AAAA-MM-DD`,
+      currentDate
+    );
+
+    if (!newDateStr) return;
+    const parsed = new Date(newDateStr + 'T12:00:00');
+    if (isNaN(parsed)) { UI.showToast('Data inválida!'); return; }
+
+    Storage.saveNamedList(list.name, list.items, list.listType, parsed.toISOString());
+    this._showHistory();   // refresh
+    UI.showToast(`Data atualizada para ${parsed.toLocaleDateString('pt-BR')}!`);
   }
 
   loadList(index) {
@@ -382,6 +411,12 @@ class ShoppingList {
 
   _showSaveDialog() {
     this.listNameInput.value = this.currentListName;
+    // Pre-fill with today's date (or keep existing date if this list was already saved)
+    const saved = Storage.getSavedLists().find(l => l.name === this.currentListName);
+    const dateVal = saved?.date
+      ? new Date(saved.date).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    if (this.listDateInput) this.listDateInput.value = dateVal;
     UI.showModal(this.saveModal);
     this.listNameInput.focus();
   }
@@ -389,7 +424,12 @@ class ShoppingList {
   _saveCurrentList() {
     const name = this.listNameInput.value.trim();
     if (!name) { UI.showToast('Digite um nome!'); return; }
-    Storage.saveNamedList(name, this.items, this.currentListType);
+    // Use the user-selected date; fall back to now if field is empty
+    const dateStr = this.listDateInput?.value;
+    const date = dateStr
+      ? new Date(dateStr + 'T12:00:00').toISOString()   // noon to avoid timezone drift
+      : new Date().toISOString();
+    Storage.saveNamedList(name, this.items, this.currentListType, date);
     this.currentListName = name;
     this.currentListNameEl.textContent = name;
     UI.hideModal(this.saveModal);
