@@ -598,3 +598,15 @@ input::placeholder { color:var(--txt-3); font-size:.8rem; }
 
 /* hist button next to edit/delete */
 .hist-btn:hover { background: rgba(0,196,140,.12); color: var(--accent); border-color: rgba(0,196,140,.2); }
+
+/* ═══ DATE INPUT INSIDE MODALS ══════════════════════════════ */
+#listDateInput {
+  color-scheme: dark;
+}
+[data-theme="light"] #listDateInput {
+  color-scheme: light;
+}
+#listDateInput:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
