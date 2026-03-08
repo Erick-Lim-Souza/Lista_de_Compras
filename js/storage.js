@@ -1,17 +1,17 @@
 /**
  * js/storage.js
  * ─────────────────────────────────────────────────────────────
- * Centralises every localStorage read/write operation.
- * Also owns JSON backup (export / import) and per-product price history.
- *
- * localStorage schema  (key: 'shoppingListData'):
- * {
- *   theme:            'light' | 'dark',
- *   currentList:      { items[], name, listType },
- *   savedLists:       [{ name, items[], listType, date }],
- *   customCategories: { [listType]: { [name]: emoji } },
- *   priceHistory:     { [normKey]: [{ date, wholesale, retail }] },
- *   feedbacks:        [{ text, date, user }]
+* Centraliza todas as operações de leitura/gravação do localStorage.
+* Também é responsável pelo backup JSON (exportação/importação) e pelo histórico de preços por produto.
+*
+* Esquema do localStorage (chave: 'shoppingListData'):
+* {
+* tema: 'light' | 'dark',
+* listaAtual: { itens[], nome, tipoDaLista },
+* listasSalvas: [{ nome, itens[], tipoDaLista, data }],
+* categoriasPersonalizadas: { [tipoDaLista]: { [nome]: emoji } },
+* históricoDePreços: { [chaveNorma]: [{ data, atacado, varejo }] },
+* feedbacks: [{ texto, data, usuário }]
  * }
  * ─────────────────────────────────────────────────────────────
  */
@@ -50,10 +50,10 @@ const Storage = (() => {
   // ── Saved (named) lists ────────────────────────────────────────
   function getSavedLists() { return _read().savedLists || []; }
 
-  function saveNamedList(name, items, listType) {
+  function saveNamedList(name, items, listType, date) {
     const d     = _read();
     d.savedLists = d.savedLists || [];
-    const entry  = { name, items: [...items], listType, date: new Date().toISOString() };
+    const entry  = { name, items: [...items], listType, date: date || new Date().toISOString() };
     const idx    = d.savedLists.findIndex(l => l.name === name);
     if (idx >= 0) d.savedLists[idx] = entry; else d.savedLists.push(entry);
     return _write(d);
