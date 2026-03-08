@@ -199,6 +199,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opa
   text-align:right;white-space:nowrap}
 
 /* ═══ NO DATA ════════════════════════════════════════════════ */
+.tlcard-auto{opacity:.75;border-style:dashed!important}
 .nd{display:flex;flex-direction:column;align-items:center;justify-content:center;
   min-height:160px;gap:8px;font-family:var(--mono);font-size:.68rem;color:var(--tx3);text-align:center}
 .ndi{font-size:1.8rem;opacity:.18;margin-bottom:4px}
@@ -278,7 +279,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opa
     <div class="card full">
       <div class="chd">
         <div><div class="ctitle">Gastos por Mês</div>
-        <div class="csub">Total acumulado de todas as listas · barra mais alta = mês mais pesado</div></div>
+        <div class="csub">Agrupado por <strong style="color:var(--ac)">data de compra</strong> · listas sem data usam data de salvamento</div></div>
         <span class="badge bg">MENSAL</span>
       </div>
       <div class="cwrap" style="height:250px"><canvas id="cBar"></canvas></div>
@@ -310,8 +311,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opa
   <div class="card" style="margin-bottom:16px;animation-delay:.36s">
     <div class="chd">
       <div>
-        <div class="ctitle">Mapa de Calor <span id="heatYr" style="color:var(--ac);font-family:var(--mono)"></span></div>
-        <div class="csub">Verde mais escuro = maior gasto · passe o mouse para ver o valor</div>
+        <div class="ctitle">Mapa de Calor
+          <span style="display:inline-flex;align-items:center;gap:6px;margin-left:8px;vertical-align:middle">
+            <button id="heatPrev" style="background:none;border:1px solid var(--ln2);border-radius:var(--rx);color:var(--tx3);cursor:pointer;padding:1px 8px;font-size:.75rem;line-height:1.6;transition:all var(--t)" title="Ano anterior">‹</button>
+            <span id="heatYr" style="color:var(--ac);font-family:var(--mono);font-size:.9rem;min-width:42px;text-align:center"></span>
+            <button id="heatNext" style="background:none;border:1px solid var(--ln2);border-radius:var(--rx);color:var(--tx3);cursor:pointer;padding:1px 8px;font-size:.75rem;line-height:1.6;transition:all var(--t)" title="Próximo ano">›</button>
+          </span>
+        </div>
+        <div class="csub">Baseado na <strong style="color:var(--ac)">data de compra</strong> · listas ⚠️ sem data de compra não são contabilizadas</div>
       </div>
       <span class="badge bg">HEATMAP</span>
     </div>
@@ -375,13 +382,38 @@ function listTotal(items){return(items||[]).reduce((a,it)=>a+itemCost(it),0)}
 function buildEvents(demo){
   if(demo)return makeDemo();
   const d=readData();const ev=[];
+
+  // Resolve the best available date for a list entry
+  // purchaseDate = user explicitly chose via date picker (new field)
+  // date         = legacy field (was the save timestamp in old lists)
+  function resolveDate(l){
+    const raw=l.purchaseDate || l.date || null;
+    return raw ? (d=>isNaN(d)?new Date():d)(new Date(raw)) : new Date();
+  }
+
   (d.savedLists||[]).forEach(l=>{
-    if(!l.date)return;const dt=new Date(l.date);if(isNaN(dt))return;
-    ev.push({date:dt,name:l.name||'Lista',listType:l.listType||'—',items:l.items||[],total:listTotal(l.items)});
+    ev.push({
+      date:          resolveDate(l),
+      name:          l.name||'Lista',
+      listType:      l.listType||'—',
+      items:         l.items||[],
+      total:         listTotal(l.items),
+      hasCustomDate: !!l.purchaseDate,   // true only when user set an explicit purchase date
+      savedAt:       l.savedAt||l.date||null,
+    });
   });
+
   if((d.currentList?.items||[]).length){
     const cl=d.currentList;
-    ev.push({date:new Date(),name:cl.name||'Lista Atual',listType:cl.listType||'—',items:cl.items,total:listTotal(cl.items)});
+    ev.push({
+      date:          resolveDate(cl),
+      name:          cl.name||'Lista Atual',
+      listType:      cl.listType||'—',
+      items:         cl.items,
+      total:         listTotal(cl.items),
+      hasCustomDate: !!cl.purchaseDate,
+      savedAt:       null,
+    });
   }
   return ev.sort((a,b)=>a.date-b.date);
 }
@@ -429,6 +461,7 @@ function guesscat(name,t){
 
 /* ── FILTER ─────────────────────────────────────────────────── */
 let activePer='3m',cfrom=null,cto=null,useDemo=false;
+let heatYear=new Date().getFullYear();
 
 function filterEv(ev){
   const now=new Date();now.setHours(23,59,59,999);
@@ -613,10 +646,14 @@ function buildDonut(ev,d){
 
 /* ── HEATMAP (full year) ────────────────────────────────────── */
 function buildHeat(all){
-  const yr=new Date().getFullYear();
+  const yr=heatYear;
   document.getElementById('heatYr').textContent=yr;
   const byM={};
-  all.forEach(e=>{if(e.date.getFullYear()!==yr)return;const k=e.date.getMonth();byM[k]=(byM[k]||0)+e.total});
+  all.forEach(e=>{
+    if(!e.hasCustomDate)return;  // only count lists with explicit purchase date
+    if(e.date.getFullYear()!==yr)return;
+    const k=e.date.getMonth();byM[k]=(byM[k]||0)+e.total;
+  });
   const vs=Object.values(byM);const mx=vs.length?Math.max(...vs):1;
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
   const row=document.getElementById('heatEl');row.innerHTML='';
@@ -639,8 +676,24 @@ function buildTimeline(ev){
   if(!ev.length){g.innerHTML='<div class="nd" style="grid-column:1/-1"><span class="ndi">📋</span>Nenhuma lista encontrada no período</div>';return;}
   [...ev].sort((a,b)=>b.date-a.date).forEach(e=>{
     const c=document.createElement('div');c.className='tlcard';
+
+    // date badge — green if explicitly set by user, grey if auto/fallback
     const dt=document.createElement('div');dt.className='tl-dt';
-    dt.textContent=e.date.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+    const dateLabel=e.date.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+    dt.innerHTML='';
+    const dtIcon=document.createElement('span');
+    dtIcon.textContent='📅 ';
+    dtIcon.style.cssText='opacity:.7;font-size:.7rem';
+    const dtTxt=document.createTextNode(dateLabel);
+    dt.appendChild(dtIcon);dt.appendChild(dtTxt);
+    if(!e.hasCustomDate){
+      const warn=document.createElement('span');
+      warn.textContent=' (auto)';
+      warn.style.cssText='color:var(--warn);font-size:.55rem;opacity:.7';
+      warn.title='Data definida automaticamente. Edite no Histórico para corrigir.';
+      dt.appendChild(warn);
+    }
+
     const nm=document.createElement('div');nm.className='tl-nm';nm.textContent=e.name;
     const vl=document.createElement('div');vl.className='tl-vl';vl.textContent=brl(e.total);
     const ty=document.createElement('div');ty.className='tl-ty';ty.textContent=e.listType+' · '+(e.items||[]).length+' itens';
@@ -711,15 +764,49 @@ document.getElementById('applyBtn').addEventListener('click',()=>{
   rebuild();
 });
 
+/* ── YEAR NAV ────────────────────────────────────────────────── */
+document.getElementById('heatPrev').addEventListener('click',()=>{
+  heatYear--;
+  document.getElementById('heatPrev').style.opacity='1';
+  const all=buildEvents(useDemo);
+  buildHeat(all);
+});
+document.getElementById('heatNext').addEventListener('click',()=>{
+  heatYear++;
+  const all=buildEvents(useDemo);
+  buildHeat(all);
+});
+
 /* ── INIT ────────────────────────────────────────────────────── */
 (function(){
   const now=new Date();
-  const from=new Date(now.getFullYear(),now.getMonth()-2,1);
-  document.getElementById('dfrom').value=from.toISOString().slice(0,10);
-  document.getElementById('dto').value=now.toISOString().slice(0,10);
   const d=readData();
   const hasReal=((d.savedLists||[]).length>0)||((d.currentList?.items||[]).length>0);
   if(!hasReal){useDemo=true;document.getElementById('demoTag').style.display=''}
+
+  // Auto-detect earliest list date to set smart default range
+  const all=buildEvents(useDemo);
+  if(all.length){
+    const oldest=all[0].date;
+    const daySpan=(now-oldest)/(864e5);
+    // If oldest data is within 3 months, keep 3M; otherwise widen to show all
+    if(daySpan>95){
+      activePer='all';
+      document.querySelectorAll('.tab').forEach(b=>{
+        b.classList.toggle('active', b.dataset.p==='all');
+      });
+    }
+    // Set date inputs to full range
+    document.getElementById('dfrom').value=oldest.toISOString().slice(0,10);
+    document.getElementById('dto').value=now.toISOString().slice(0,10);
+    // Set heatmap year to year of most recent data
+    heatYear=all[all.length-1].date.getFullYear();
+  } else {
+    const from=new Date(now.getFullYear(),now.getMonth()-2,1);
+    document.getElementById('dfrom').value=from.toISOString().slice(0,10);
+    document.getElementById('dto').value=now.toISOString().slice(0,10);
+  }
+
   rebuild();
 })();
 </script>
