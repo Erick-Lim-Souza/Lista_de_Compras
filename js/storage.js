@@ -50,11 +50,19 @@ const Storage = (() => {
   // ── Saved (named) lists ────────────────────────────────────────
   function getSavedLists() { return _read().savedLists || []; }
 
-  function saveNamedList(name, items, listType, date) {
+  function saveNamedList(name, items, listType, purchaseDate) {
     const d     = _read();
     d.savedLists = d.savedLists || [];
-    const entry  = { name, items: [...items], listType, date: date || new Date().toISOString() };
-    const idx    = d.savedLists.findIndex(l => l.name === name);
+    const entry  = {
+      name,
+      items:        [...items],
+      listType,
+      savedAt:      new Date().toISOString(),          // timestamp automático de quando foi salvo
+      purchaseDate: purchaseDate || null,               // data de compra definida pelo usuário (null = não definida)
+      // manter 'date' por compatibilidade com listas antigas
+      date:         purchaseDate || new Date().toISOString(),
+    };
+    const idx = d.savedLists.findIndex(l => l.name === name);
     if (idx >= 0) d.savedLists[idx] = entry; else d.savedLists.push(entry);
     return _write(d);
   }
