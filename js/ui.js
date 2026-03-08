@@ -1,13 +1,13 @@
 /**
  * js/ui.js
  * ─────────────────────────────────────────────────────────────
- * All DOM mutations live here.
- *
- * Security rule:
- *   User-supplied strings (item names, list names, category names …)
- *   ALWAYS go through textContent / createElement — never innerHTML.
- *   innerHTML is only used for fully-trusted, hard-coded template
- *   strings that contain zero user data.
+* Todas as mutações do DOM residem aqui.
+*
+* Regra de segurança:
+* Strings fornecidas pelo usuário (nomes de itens, nomes de listas, nomes de categorias…)
+* SEMPRE passem por textContent / createElement — nunca por innerHTML.
+* innerHTML é usado apenas para strings de modelo codificadas e totalmente confiáveis
+* que não contenham dados do usuário.
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -243,13 +243,15 @@ const UI = (() => {
 
       const info    = document.createElement('div');
       const name    = document.createElement('div'); name.className    = 'history-name';    name.textContent    = list.name;   // safe
-      const details = document.createElement('div'); details.className = 'history-details'; details.textContent = `${list.items.length} itens · ${new Date(list.date).toLocaleDateString('pt-BR')}`;
+      const dateStr = list.date ? new Date(list.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      const details = document.createElement('div'); details.className = 'history-details'; details.textContent = `📅 ${dateStr}  ·  ${list.items.length} itens`;
       info.appendChild(name); info.appendChild(details);
 
       const acts   = document.createElement('div'); acts.className = 'history-actions';
-      const loadBtn = _mkBtn('btn btn-primary btn-sm',  'Carregar', () => handlers.onLoad(index));
-      const delBtn  = _mkBtn('btn btn-danger  btn-sm',  'Excluir',  () => handlers.onDelete(index));
-      acts.appendChild(loadBtn); acts.appendChild(delBtn);
+      const loadBtn = _mkBtn('btn btn-primary btn-sm',  'Carregar',      () => handlers.onLoad(index));
+      const editBtn = _mkBtn('btn btn-secondary btn-sm','📅 Data',       () => handlers.onEditDate(index));
+      const delBtn  = _mkBtn('btn btn-danger  btn-sm',  'Excluir',       () => handlers.onDelete(index));
+      acts.appendChild(loadBtn); acts.appendChild(editBtn); acts.appendChild(delBtn);
 
       item.appendChild(info); item.appendChild(acts);
       container.appendChild(item);
