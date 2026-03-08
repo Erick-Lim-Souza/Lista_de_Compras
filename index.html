@@ -3,290 +3,338 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Gerencie sua lista de compras de forma inteligente e prática. Adicione itens, categorize-os, e acompanhe o total da sua compra.">
-  <meta name="keywords" content="lista de compras, gerenciamento de compras, app de compras, lista inteligente, compras online">
-  <!-- Favicon padrão -->
-<link rel="icon" href="img/icons/icons8-cesta-de-compras-128.ico" type="image/x-icon">
-
-<!-- Favicon para dispositivos Apple -->
-<link rel="apple-touch-icon" sizes="180x180" href="img/icons/icons8-cesta-de-compras-128.ico">
-
-<!-- Favicon moderno (SVG) -->
-<link rel="icon" type="image/svg+xml" href="img/icons/icons8-cesta-de-compras-128.ico">
-
-<!-- Configuração para Windows/Edge -->
-<meta name="msapplication-TileColor" content="#4f46e5">
-<meta name="msapplication-TileImage" content="img/icons/icons8-cesta-de-compras-128.ico">
-
-  <title>Lista de Compras Inteligente</title>
+  <meta name="description" content="Gerencie sua lista de compras de forma inteligente. Funciona offline, instale no seu dispositivo.">
+  <meta name="keywords" content="lista de compras, pwa, app compras, offline">
+  <link rel="icon" href="img/icons/icons8-cesta-de-compras-128.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/icons/icons8-cesta-de-compras-128.ico">
+  <meta name="msapplication-TileColor" content="#00C48C">
+  <meta name="theme-color" content="#00C48C">
+  <title>Lista de Compras</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>🛒 Lista de Compras</h1>
-            <div class="header-actions">
-                <button id="historyButton" class="btn btn-secondary btn-sm" title="Gerenciar Histórico">
-                    📋 Histórico
-                </button>
-                <button id="versionButton" class="btn btn-secondary btn-sm" title="Versão">
-                    ℹ️ Versão
-                </button>
-                <button id="configButton" class="btn btn-secondary btn-sm" title="Configurações">
-                    ⚙️ Config
-                </button>
-                <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
-                    <span class="theme-icon">🌙</span>
-                </button>
-            </div>
-        </header>
+<div class="container">
 
-        <div class="list-management">
-            <div class="list-info">
-                <div class="current-list">
-                    📝 <span id="currentListName">Lista Atual</span>
-                </div>
-                <div class="list-actions">
-                    <button id="saveListButton" class="btn btn-primary btn-sm">
-                        💾 Salvar Lista
-                    </button>
-                    <button id="newListButton" class="btn btn-secondary btn-sm">
-                        📄 Nova Lista
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <form class="input-form" id="itemForm">
-            <div class="input-group">
-                <div class="input-field">
-                    <label for="itemInput">Item</label>
-                    <input type="text" id="itemInput" placeholder="Digite o nome do item..." required>
-                </div>
-                <div class="input-field">
-                    <label for="categorySelect">Categoria</label>
-                    <select id="categorySelect">
-                        <option value="Alimentos">🍎 Alimentos</option>
-                        <option value="Hortifruti">🥦 Hortifruti</option>
-                        <option value="Carnes">🍖 Carnes</option>
-                        <option value="Limpeza">🧽 Limpeza</option>
-                        <option value="Higiene">🧴 Higiene</option>
-                        <option value="Bebidas">🥤 Bebidas</option>
-                        <option value="Outros">📦 Outros</option>
-                    </select>
-                </div>
-            </div>
-            <div class="input-group">
-                <div class="input-field">
-                    <label for="quantityInput">Quantidade</label>
-                    <input type="number" id="quantityInput" placeholder="1" min="0.001" step="0.001" value="1">
-                </div>
-                <div class="input-field">
-                    <label for="unitSelect">Unidade</label>
-                    <select id="unitSelect">
-                        <option value="unidade">Unidade</option>
-                        <option value="kg">Kg</option>
-                        <option value="g">Gramas</option>
-                        <option value="l">Litros</option>
-                        <option value="ml">ml</option>
-                        <option value="pacote">Pacote</option>
-                        <option value="caixa">Caixa</option>
-                        <option value="dúzia">Dúzia</option>
-                    </select>
-                </div>
-            </div>
-            <div class="input-group">
-                <div class="input-field">
-                    <label for="priceWholesaleInput">Preço Atacado (R$)</label>
-                    <input type="number" id="priceWholesaleInput" placeholder="0.00" min="0" step="0.01">
-                </div>
-                <div class="input-field">
-                    <label for="priceRetailInput">Preço Varejo (R$)</label>
-                    <input type="number" id="priceRetailInput" placeholder="0.00" min="0" step="0.01">
-                </div>
-            </div>
-            <button type="submit" id="addButton" class="btn btn-primary">
-                ➕ Adicionar Item
-            </button>
-        </form>
-
-        <div class="stats-bar">
-            <div class="stat-item">
-                <span class="stat-label">Total de Itens:</span>
-                <span id="totalItems" class="stat-value">0</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Total Geral:</span>
-                <span id="totalGeneral" class="stat-value">R$ 0,00</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Economia:</span>
-                <span id="totalEconomy" class="stat-value">R$ 0,00</span>
-            </div>
-        </div>
-
-        <div class="filter-section">
-            <div class="filter-buttons">
-                <button class="filter-btn active" data-filter="all">Todos</button>
-                <button class="filter-btn" data-filter="pending">Pendentes</button>
-                <button class="filter-btn" data-filter="completed">Comprados</button>
-            </div>
-        </div>
-
-        <div class="list-container">
-            <ul id="itemList" class="item-list"></ul>
-            <div id="emptyState" class="empty-state">
-                <div class="empty-icon">🛒</div>
-                <h3>Lista vazia</h3>
-                <p>Adicione seu primeiro item para começar!</p>
-            </div>
-        </div>
-
-        <div class="action-buttons">
-            <div class="button-group">
-                <button id="clearAllButton" class="btn btn-danger">
-                    🗑️ Limpar Lista
-                </button>
-                <button id="shareButton" class="btn btn-secondary">
-                    📤 Compartilhar
-                </button>
-                <button id="compareListsButton" class="btn btn-primary">
-                    📊 Comparar Listas
-                </button>
-            </div>
-            <div class="export-buttons">
-                <h3>Exportar Lista</h3>
-                <div class="export-group">
-                    <button id="exportTxt" class="btn btn-export">📄 TXT</button>
-                    <button id="exportPdf" class="btn btn-export">📑 PDF</button>
-                    <button id="exportExcel" class="btn btn-export">📊 Excel</button>
-                </div>
-            </div>
-        </div>
+  <header class="header">
+    <h1>🛒 Lista de Compras <span class="badge">v2.0</span></h1>
+    <div class="header-actions">
+      <button id="historyButton" class="btn btn-secondary btn-sm">📋 Histórico</button>
+      <button onclick="location.href='dashboard.html'" class="btn btn-secondary btn-sm" title="Dashboard de gastos">📊</button>
+      <button id="versionButton" class="btn btn-secondary btn-sm">ℹ️</button>
+      <button id="configButton"  class="btn btn-secondary btn-sm">⚙️</button>
+      <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
+        <span class="theme-icon">🌙</span>
+      </button>
     </div>
+  </header>
 
-    <!-- Modal de Comparação de Listas -->
-    <div id="compareModal" class="modal">
-        <div class="modal-content modal-large">
-            <h3>📊 Comparar Listas</h3>
-            <div class="compare-selection">
-                <div class="compare-field">
-                    <label for="compareList1">Lista 1:</label>
-                    <select id="compareList1" class="compare-select">
-                        <option value="">Selecione uma lista...</option>
-                    </select>
-                </div>
-                <div class="compare-field">
-                    <label for="compareList2">Lista 2:</label>
-                    <select id="compareList2" class="compare-select">
-                        <option value="">Selecione uma lista...</option>
-                    </select>
-                </div>
-            </div>
-            <div id="compareResults" class="compare-results">
-                <!-- Resultados da comparação serão exibidos aqui -->
-            </div>
-            <div class="modal-buttons">
-                <button id="compareExecute" class="btn btn-primary">Comparar</button>
-                <button id="compareClose" class="btn btn-secondary">Fechar</button>
-            </div>
-        </div>
+  <div id="installBanner">
+    <span class="install-icon">📲</span>
+    <div class="install-text">
+      <strong>Instalar no dispositivo</strong>
+      <span>Acesso offline · Ícone na tela inicial · Mais rápido</span>
     </div>
-
-    <!-- Modal de Confirmação -->
-    <div id="confirmModal" class="modal">
-        <div class="modal-content">
-            <h3>Confirmar ação</h3>
-            <p id="confirmMessage">Tem certeza que deseja continuar?</p>
-            <div class="modal-buttons">
-                <button id="confirmCancel" class="btn btn-secondary">Cancelar</button>
-                <button id="confirmOk" class="btn btn-danger">Confirmar</button>
-            </div>
-        </div>
+    <div class="install-actions">
+      <button id="installBtn"     class="btn-install">Instalar</button>
+      <button id="installDismiss" class="btn-install-x" aria-label="Fechar">✕</button>
     </div>
+  </div>
 
-    <!-- Modal de Histórico -->
-    <div id="historyModal" class="modal">
-        <div class="modal-content">
-            <h3>📋 Histórico de Listas</h3>
-            <div id="historyList" class="history-list">
-                <!-- Listas serão carregadas aqui -->
-            </div>
-            <div class="modal-buttons">
-                <button id="historyClose" class="btn btn-secondary">Fechar</button>
-            </div>
-        </div>
+  <div class="list-management">
+    <div class="list-info">
+      <div class="current-list"><span id="currentListName">Lista Atual</span></div>
+      <div class="list-actions">
+        <button id="saveListButton" class="btn btn-primary btn-sm">💾 Salvar</button>
+        <button id="newListButton"  class="btn btn-secondary btn-sm">📄 Nova</button>
+      </div>
     </div>
+  </div>
 
-    <!-- Modal de Salvar Lista -->
-    <div id="saveListModal" class="modal">
-        <div class="modal-content">
-            <h3>💾 Salvar Lista</h3>
-            <div class="new-list-form">
-                <input type="text" id="listNameInput" placeholder="Nome da lista..." maxlength="50">
-                <div class="modal-buttons">
-                    <button id="saveCancel" class="btn btn-secondary">Cancelar</button>
-                    <button id="saveConfirm" class="btn btn-primary">Salvar</button>
-                </div>
-            </div>
-        </div>
+  <form class="input-form" id="itemForm">
+    <div class="input-group" style="grid-template-columns:1fr">
+      <div class="input-field">
+        <label for="itemInput">Item</label>
+        <input type="text" id="itemInput" placeholder="Nome do item..." required autocomplete="off">
+      </div>
     </div>
-
-    <!-- Modal de Configurações -->
-    <div id="configModal" class="modal">
-        <div class="modal-content">
-            <h3>⚙️ Configurações de Categorias</h3>
-            <div class="config-content">
-                <div class="config-section">
-                    <h4>Tipo de Lista Atual: <span id="currentListTypeDisplay">Supermercado</span></h4>
-                    <button id="changeListType" class="btn btn-secondary">Alterar Tipo de Lista</button>
-                </div>
-                
-                <div class="config-section">
-                    <h4>Categorias Personalizadas</h4>
-                    <div id="customCategoriesList" class="custom-categories">
-                        <!-- Categorias personalizadas serão listadas aqui -->
-                    </div>
-                    
-                    <div class="add-category-form">
-                        <input type="text" id="newCategoryName" placeholder="Nome da categoria..." maxlength="30">
-                        <input type="text" id="newCategoryEmoji" placeholder="Emoji (ex: 🍎)" maxlength="2">
-                        <button id="addCustomCategory" class="btn btn-primary">Adicionar Categoria</button>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-buttons">
-                <button id="configClose" class="btn btn-secondary">Fechar</button>
-            </div>
-        </div>
+    <div class="input-group">
+      <div class="input-field">
+        <label for="categorySelect">Categoria</label>
+        <select id="categorySelect">
+          <option value="Alimentos">🍎 Alimentos</option>
+          <option value="Hortifruti">🥦 Hortifruti</option>
+          <option value="Carnes">🍖 Carnes</option>
+          <option value="Limpeza">🧽 Limpeza</option>
+          <option value="Higiene">🧴 Higiene</option>
+          <option value="Bebidas">🥤 Bebidas</option>
+          <option value="Outros">📦 Outros</option>
+        </select>
+      </div>
+      <div class="input-field">
+        <label for="unitSelect">Unidade</label>
+        <select id="unitSelect">
+          <option value="unidade">Unidade</option>
+          <option value="kg">Kg</option>
+          <option value="g">Gramas</option>
+          <option value="l">Litros</option>
+          <option value="ml">ml</option>
+          <option value="pacote">Pacote</option>
+          <option value="caixa">Caixa</option>
+          <option value="dúzia">Dúzia</option>
+        </select>
+      </div>
     </div>
+    <div class="input-group">
+      <div class="input-field">
+        <label for="quantityInput">Quantidade</label>
+        <input type="number" id="quantityInput" placeholder="1" min="0.001" step="0.001" value="1">
+      </div>
+      <div class="input-field" style="visibility:hidden"></div>
+    </div>
+    <div class="input-group">
+      <div class="input-field">
+        <label for="priceWholesaleInput">Atacado (R$)</label>
+        <input type="number" id="priceWholesaleInput" placeholder="0,00" min="0" step="0.01">
+      </div>
+      <div class="input-field">
+        <label for="priceRetailInput">Varejo (R$)</label>
+        <input type="number" id="priceRetailInput" placeholder="0,00" min="0" step="0.01">
+      </div>
+    </div>
+    <button type="submit" id="addButton" class="btn btn-primary">➕ Adicionar Item</button>
+  </form>
+
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-label">Itens</span>
+      <span id="totalItems" class="stat-value">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Total</span>
+      <span id="totalGeneral" class="stat-value">R$0,00</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Economia</span>
+      <span id="totalEconomy" class="stat-value">R$0,00</span>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-buttons">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="pending">Pendentes</button>
+      <button class="filter-btn" data-filter="completed">Comprados</button>
+    </div>
+  </div>
+
+  <div class="list-container">
+    <ul id="itemList"></ul>
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">🛒</div>
+      <h3>LISTA VAZIA</h3>
+      <p>Adicione seu primeiro item para começar</p>
+    </div>
+  </div>
+
+  <div class="action-buttons">
+    <div class="button-group">
+      <button id="clearAllButton"     class="btn btn-danger">🗑️ Limpar</button>
+      <button id="shareButton"        class="btn btn-secondary">📤 Compartilhar</button>
+      <button id="compareListsButton" class="btn btn-secondary">📊 Comparar</button>
+    </div>
+    <div class="export-buttons">
+      <span class="export-label">Exportar lista</span>
+      <div class="export-group">
+        <button id="exportTxt"   class="btn btn-export">TXT</button>
+        <button id="exportPdf"   class="btn btn-export">PDF</button>
+        <button id="exportExcel" class="btn btn-export">CSV</button>
+      </div>
+    </div>
+    <div>
+      <span class="export-label">Backup de dados</span>
+      <div class="export-group">
+        <button id="backupDownload" class="btn btn-backup-dl">⬇ Baixar JSON</button>
+        <button id="backupUpload"   class="btn btn-backup-ul">⬆ Restaurar JSON</button>
+        <input  id="backupFileInput" type="file" accept=".json" style="display:none">
+      </div>
+    </div>
+  </div>
+
+<footer class="footer">
+  Copyright © Desde de 2025 · Lista de Compras Inteligente
+</footer>
 
 
-<!-- Botões flutuantes -->
-<div style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 9999;">
-  <button onclick="showModal('feedbackForm')" class="btn btn-primary">📝</button>
 </div>
 
-<!-- Modal de Feedbacks Recebidos (apenas você vê) -->
-<div id="allFeedbacksModal" class="modal">
-  <div class="modal-content">
-    <h3>📬 Feedbacks Recebidos</h3>
-    <ul id="allFeedbacksList" style="text-align: left;"></ul>
-    <button onclick="hideModal('allFeedbacksModal')" class="btn btn-secondary">Fechar</button>
+<!-- MODALS -->
+
+<div id="compareModal" class="modal">
+  <div class="modal-content modal-large">
+    <h3>📊 Comparar Listas</h3>
+    <div class="compare-selection">
+      <div class="compare-field">
+        <label for="compareList1">Lista 1</label>
+        <select id="compareList1" class="compare-select"><option value="">Selecione...</option></select>
+      </div>
+      <div class="compare-field">
+        <label for="compareList2">Lista 2</label>
+        <select id="compareList2" class="compare-select"><option value="">Selecione...</option></select>
+      </div>
+    </div>
+    <div id="compareResults" class="compare-results">
+      <p style="color:var(--txt-3);font-family:var(--mono);font-size:.72rem;">Selecione duas listas para comparar.</p>
+    </div>
+    <div class="modal-buttons">
+      <button id="compareClose"   class="btn btn-secondary">Fechar</button>
+      <button id="compareExecute" class="btn btn-primary">Comparar</button>
+    </div>
   </div>
 </div>
 
-    <footer class="footer">
-        <p>Desenvolvido por Erick de Lima Souza <a href="https://ericklima-dev.netlify.app/">By. <strong>Green Monster Project</strong></a> &copy; 2025</p>
-    </footer>
+<div id="confirmModal" class="modal">
+  <div class="modal-content">
+    <h3>⚠️ Confirmar</h3>
+    <p id="confirmMessage">Tem certeza?</p>
+    <div class="modal-buttons">
+      <button id="confirmCancel" class="btn btn-secondary">Cancelar</button>
+      <button id="confirmOk"     class="btn btn-danger">Confirmar</button>
     </div>
+  </div>
+</div>
 
-  <script src="script.js"></script>
+<div id="historyModal" class="modal">
+  <div class="modal-content">
+    <h3>📋 Histórico de Listas</h3>
+    <div id="historyList" class="history-list"></div>
+    <div class="modal-buttons">
+      <button id="historyClose" class="btn btn-secondary">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="saveListModal" class="modal">
+  <div class="modal-content">
+    <h3>💾 Salvar Lista</h3>
+    <div class="new-list-form">
+      <input type="text" id="listNameInput" placeholder="Nome da lista..." maxlength="50">
+      <div class="modal-buttons">
+        <button id="saveCancel"  class="btn btn-secondary">Cancelar</button>
+        <button id="saveConfirm" class="btn btn-primary">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="configModal" class="modal">
+  <div class="modal-content">
+    <h3>⚙️ Configurações</h3>
+    <div class="config-content">
+      <div class="config-section">
+        <h4>Tipo de Lista → <span id="currentListTypeDisplay">Supermercado</span></h4>
+        <button id="changeListType" class="btn btn-secondary btn-sm">Alterar Tipo</button>
+      </div>
+      <div class="config-section">
+        <h4>Categorias Personalizadas</h4>
+        <div id="customCategoriesList" class="custom-categories"></div>
+        <div class="add-category-form">
+          <input type="text" id="newCategoryName"  placeholder="Nome..." maxlength="30">
+          <input type="text" id="newCategoryEmoji" placeholder="🍎" maxlength="2" style="max-width:68px;">
+          <button id="addCustomCategory" class="btn btn-primary btn-sm">+ Add</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-buttons">
+      <button id="configClose" class="btn btn-secondary">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Histórico de Preços (mini BI) -->
+<div id="priceHistoryModal" class="modal">
+  <div class="modal-content modal-large">
+    <h3 id="priceHistoryTitle">📈 Histórico de Preços</h3>
+    <div id="priceHistoryContent"></div>
+    <div class="modal-buttons">
+      <button id="priceHistoryClose" class="btn btn-secondary">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="allFeedbacksModal" class="modal">
+  <div class="modal-content">
+    <h3>📬 Feedbacks</h3>
+    <ul id="allFeedbacksList" style="text-align:left;"></ul>
+    <div class="modal-buttons">
+      <button onclick="hideModal('allFeedbacksModal')" class="btn btn-secondary">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="fab-area">
+  <button onclick="showModal('feedbackForm')" class="btn" title="Feedback">💬</button>
+</div>
+
+<!-- PWA INSTALL + AUTO-UPDATE -->
+<script>
+  let _deferredInstall = null;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredInstall = e;
+    if (localStorage.getItem('pwa-dismissed') === '1') return;
+    document.getElementById('installBanner').classList.add('visible');
+  });
+
+  document.getElementById('installBtn').addEventListener('click', async () => {
+    if (_deferredInstall) {
+      _deferredInstall.prompt();
+      await _deferredInstall.userChoice;
+      _deferredInstall = null;
+      document.getElementById('installBanner').classList.remove('visible');
+    } else {
+      alert('Para instalar no iPhone/iPad:\n\n1. Toque em Compartilhar ↑\n2. "Adicionar à Tela Inicial"\n3. Confirme tocando em "Adicionar"');
+    }
+  });
+
+  document.getElementById('installDismiss').addEventListener('click', () => {
+    document.getElementById('installBanner').classList.remove('visible');
+    localStorage.setItem('pwa-dismissed', '1');
+  });
+
+  window.addEventListener('appinstalled', () =>
+    document.getElementById('installBanner').classList.remove('visible')
+  );
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () =>
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => {
+          reg.addEventListener('updatefound', () => {
+            const sw = reg.installing;
+            sw.addEventListener('statechange', () => {
+              if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+                sw.postMessage('SKIP_WAITING');
+                window.location.reload();
+              }
+            });
+          });
+        })
+        .catch(() => {})
+    );
+  }
+</script>
+
+<!-- MODULES — load in dependency order -->
+<script src="js/calculator.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
-
