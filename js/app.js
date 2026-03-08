@@ -382,7 +382,7 @@ Formato: AAAA-MM-DD`,
     const parsed = new Date(newDateStr + 'T12:00:00');
     if (isNaN(parsed)) { UI.showToast('Data inválida!'); return; }
 
-    Storage.saveNamedList(list.name, list.items, list.listType, parsed.toISOString());
+    Storage.saveNamedList(list.name, list.items, list.listType, parsed.toISOString()); // purchaseDate
     this._showHistory();   // refresh
     UI.showToast(`Data atualizada para ${parsed.toLocaleDateString('pt-BR')}!`);
   }
@@ -411,12 +411,17 @@ Formato: AAAA-MM-DD`,
 
   _showSaveDialog() {
     this.listNameInput.value = this.currentListName;
-    // Pre-fill with today's date (or keep existing date if this list was already saved)
+    // Pre-fill with the purchaseDate if already set; leave blank for new lists
     const saved = Storage.getSavedLists().find(l => l.name === this.currentListName);
-    const dateVal = saved?.date
-      ? new Date(saved.date).toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10);
-    if (this.listDateInput) this.listDateInput.value = dateVal;
+    if (this.listDateInput) {
+      if (saved?.purchaseDate) {
+        // Lista já tem data de compra definida — mostrar ela
+        this.listDateInput.value = new Date(saved.purchaseDate).toISOString().slice(0, 10);
+      } else {
+        // Lista nova ou sem data de compra — pré-preenche com hoje
+        this.listDateInput.value = new Date().toISOString().slice(0, 10);
+      }
+    }
     UI.showModal(this.saveModal);
     this.listNameInput.focus();
   }
@@ -424,12 +429,12 @@ Formato: AAAA-MM-DD`,
   _saveCurrentList() {
     const name = this.listNameInput.value.trim();
     if (!name) { UI.showToast('Digite um nome!'); return; }
-    // Use the user-selected date; fall back to now if field is empty
+    // purchaseDate: only set when user explicitly chose a date in the picker
     const dateStr = this.listDateInput?.value;
-    const date = dateStr
+    const purchaseDate = dateStr
       ? new Date(dateStr + 'T12:00:00').toISOString()   // noon to avoid timezone drift
-      : new Date().toISOString();
-    Storage.saveNamedList(name, this.items, this.currentListType, date);
+      : null;   // null = não definida, dashboard mostrará aviso "(sem data)"
+    Storage.saveNamedList(name, this.items, this.currentListType, purchaseDate);
     this.currentListName = name;
     this.currentListNameEl.textContent = name;
     UI.hideModal(this.saveModal);
