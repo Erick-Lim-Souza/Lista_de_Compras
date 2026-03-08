@@ -165,10 +165,9 @@
     </div>
   </div>
 
-<footer class="footer">
-  Copyright © Desde de 2025 · Lista de Compras Inteligente
-</footer>
-
+  <footer class="footer">
+    Erick de Lima Souza · <a href="https://ericklima-dev.netlify.app/" target="_blank">Green Monster Project</a> © 2025
+  </footer>
 
 </div>
 
@@ -223,7 +222,11 @@
     <h3>💾 Salvar Lista</h3>
     <div class="new-list-form">
       <input type="text" id="listNameInput" placeholder="Nome da lista..." maxlength="50">
-      <div class="modal-buttons">
+      <div class="input-field" style="margin-top:10px">
+        <label for="listDateInput" style="font-family:var(--mono);font-size:.65rem;color:var(--txt-3);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px">📅 Data da compra</label>
+        <input type="date" id="listDateInput" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg);color:var(--txt);font-family:var(--mono);font-size:.82rem;transition:border-color .17s;outline:none">
+      </div>
+      <div class="modal-buttons" style="margin-top:14px">
         <button id="saveCancel"  class="btn btn-secondary">Cancelar</button>
         <button id="saveConfirm" class="btn btn-primary">Salvar</button>
       </div>
@@ -276,9 +279,9 @@
   </div>
 </div>
 
-<!-- <div class="fab-area">
+<div class="fab-area">
   <button onclick="showModal('feedbackForm')" class="btn" title="Feedback">💬</button>
-</div> -->
+</div>
 
 <!-- PWA INSTALL + AUTO-UPDATE -->
 <script>
@@ -338,4 +341,3 @@
 <script src="js/app.js"></script>
 </body>
 </html>
-
