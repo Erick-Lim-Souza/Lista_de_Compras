@@ -651,25 +651,44 @@ function buildTimeline(ev){
 /* ── TOP PRODUCTS ───────────────────────────────────────────── */
 function buildTop(ev){
   const bp={};
-  ev.forEach(e=>(e.items||[]).forEach(it=>{const t=itemCost(it);if(!t)return;
-    if(!bp[it.name])bp[it.name]={total:0,count:0,cat:it.category};
-    bp[it.name].total+=t;bp[it.name].count+=1}));
+  ev.forEach(e=>(e.items||[]).forEach(it=>{
+    const t=itemCost(it);if(!t)return;
+    // normalise quantity to display unit (g→kg, ml→L)
+    let q=parseFloat(it.quantity)||1;
+    let u=it.unit||'un';
+    if(u==='g'){q/=1000;u='kg';}
+    else if(u==='ml'){q/=1000;u='L';}
+    const key=it.name;
+    if(!bp[key])bp[key]={total:0,totalQty:0,unit:u,cat:it.category,listas:0};
+    bp[key].total   +=t;
+    bp[key].totalQty+=q;
+    bp[key].listas  +=1;
+  }));
   const sorted=Object.entries(bp).map(([n,v])=>({name:n,...v})).sort((a,b)=>b.total-a.total).slice(0,12);
   const w=document.getElementById('topEl');
   if(!sorted.length){w.innerHTML='<div class="nd"><span class="ndi">📦</span>Adicione preços aos itens para ver o ranking</div>';return;}
   const mx=sorted[0].total;
+
+  // Format quantity: trim trailing zeros, keep up to 3 decimal places
+  function fmtQty(q,u){
+    const s=q%1===0?q.toFixed(0):q.toFixed(3).replace(/\.?0+$/,'');
+    return s+' '+u;
+  }
+
   const tbl=document.createElement('table');tbl.className='ptbl';
   const hd=tbl.createTHead().insertRow();
-  ['#','Produto','Qtd','Distribuição','Total gasto'].forEach(h=>{const t=document.createElement('th');t.textContent=h;hd.appendChild(t)});
+  ['#','Produto','Qtd. total','Distribuição','Total gasto'].forEach(h=>{const t=document.createElement('th');t.textContent=h;hd.appendChild(t)});
   const tb=tbl.createTBody();
   sorted.forEach((p,i)=>{
     const pct=Math.round((p.total/mx)*100);const tr=tb.insertRow();
     const rn=tr.insertCell();rn.className='rn'+(i===0?' g':i===1?' s':i===2?' b':'');rn.textContent=`#${i+1}`;
     const nc=tr.insertCell();
     const dn=document.createElement('div');dn.className='pnm';dn.textContent=p.name;
-    const dc=document.createElement('div');dc.className='pcat';dc.textContent=p.cat;
+    const dc=document.createElement('div');dc.className='pcat';dc.textContent=p.cat+' · '+p.listas+' lista(s)';
     nc.appendChild(dn);nc.appendChild(dc);
-    const cc=tr.insertCell();cc.className='pcnt';cc.textContent=`${p.count}×`;
+    const cc=tr.insertCell();cc.className='pcnt';
+    cc.style.cssText='font-family:var(--mono);font-size:.75rem;color:var(--ac);white-space:nowrap;';
+    cc.textContent=fmtQty(p.totalQty,p.unit);
     const bc=tr.insertCell();
     bc.innerHTML=`<div class="bwrap"><div class="bbg"><div class="bfil" style="width:${pct}%"></div></div><span class="bpct">${pct}%</span></div>`;
     const pc=tr.insertCell();pc.className='ppr';pc.textContent=brl(p.total);
