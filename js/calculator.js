@@ -106,5 +106,61 @@ const Calculator = (() => {
     ).join('');
   }
 
-  return { calculateUnitPrice, calculateTotals, formatPrice, priceTrend, debounce, generateId };
+  /**
+   * Calcula a média de dias entre compras de um produto específico.
+   * Usa listas salvas com purchaseDate ou createdAt para montar a linha do tempo.
+   *
+   * @param {string} itemName     — nome do produto
+   * @param {Array}  savedLists   — array de listas salvas
+   * @returns {{ avgDays:number, occurrences:number, lastDate:Date, nextEstimate:Date } | null}
+   */
+  function estimateProductCycle(itemName, savedLists) {
+    const norm = String(itemName).toLowerCase().trim();
+    const dates = [];
+
+    (savedLists || []).forEach(list => {
+      const found = (list.items || []).find(it =>
+        String(it.name).toLowerCase().trim() === norm
+      );
+      if (!found) return;
+      const raw = list.purchaseDate || list.createdAt || list.date;
+      if (!raw) return;
+      const d = new Date(raw);
+      if (!isNaN(d)) dates.push(d);
+    });
+
+    if (dates.length < 2) return dates.length === 1
+      ? { avgDays: null, occurrences: 1, lastDate: dates[0], nextEstimate: null }
+      : null;
+
+    dates.sort((a, b) => a - b);
+
+    let total = 0;
+    for (let i = 1; i < dates.length; i++) {
+      total += (dates[i] - dates[i - 1]) / 864e5;
+    }
+    const avgDays     = Math.round(total / (dates.length - 1));
+    const lastDate    = dates[dates.length - 1];
+    const nextEstimate = new Date(lastDate.getTime() + avgDays * 864e5);
+
+    return { avgDays, occurrences: dates.length, lastDate, nextEstimate };
+  }
+
+  /**
+   * Returns how many days since lastDate and whether the item is likely running out.
+   * "running out" = daysSinceLast >= (avgDays * 0.85)
+   */
+  function productCycleStatus(cycleResult) {
+    if (!cycleResult || !cycleResult.lastDate) return null;
+    const daysSinceLast = Math.round((Date.now() - cycleResult.lastDate.getTime()) / 864e5);
+    const pct = cycleResult.avgDays ? daysSinceLast / cycleResult.avgDays : 0;
+    return {
+      daysSinceLast,
+      pct: Math.min(pct, 1),
+      runningOut: pct >= 0.85,
+      overdue:    pct >= 1.0,
+    };
+  }
+
+  return { calculateUnitPrice, calculateTotals, formatPrice, priceTrend, debounce, generateId, estimateProductCycle, productCycleStatus };
 })();
