@@ -1,13 +1,13 @@
 /**
  * js/ui.js
  * ─────────────────────────────────────────────────────────────
-* Todas as mutações do DOM residem aqui.
-*
-* Regra de segurança:
-* Strings fornecidas pelo usuário (nomes de itens, nomes de listas, nomes de categorias…)
-* SEMPRE passem por textContent / createElement — nunca por innerHTML.
-* innerHTML é usado apenas para strings de modelo codificadas e totalmente confiáveis
-* que não contenham dados do usuário.
+ * All DOM mutations live here.
+ *
+ * Security rule:
+ *   User-supplied strings (item names, list names, category names …)
+ *   ALWAYS go through textContent / createElement — never innerHTML.
+ *   innerHTML is only used for fully-trusted, hard-coded template
+ *   strings that contain zero user data.
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -152,6 +152,24 @@ const UI = (() => {
         content.appendChild(_buildPricesBlock(uPrice, item, formatPrice));
       }
 
+      // Cycle of consumption hint — "⏳ Dura ~25 dias"
+      try {
+        const lists = Storage.getSavedLists();
+        const cycle = Calculator.estimateProductCycle(item.name, lists);
+        if (cycle && cycle.avgDays) {
+          const status = Calculator.productCycleStatus(cycle);
+          const hintEl = document.createElement('div');
+          let cls = 'item-cycle-hint';
+          let icon = '⏳';
+          let label = `Dura ~${cycle.avgDays} dias`;
+          if (status?.overdue)    { cls += ' overdue';     icon = '⚠️'; label = `Acaba há ${status.daysSinceLast - cycle.avgDays}d (comprar!)`; }
+          else if (status?.runningOut) { cls += ' running-out'; icon = '🔔'; label = `~${cycle.nextEstimate ? Math.max(0, Math.round((cycle.nextEstimate - Date.now())/864e5)) : '?'}d p/ repor`; }
+          hintEl.className = cls;
+          hintEl.textContent = `${icon} ${label}`;
+          content.appendChild(hintEl);
+        }
+      } catch { /* storage not available yet */ }
+
       // Trend badge
       const trend = getTrend ? getTrend(item) : null;
       if (trend) content.appendChild(_buildTrendBadge(trend));
@@ -243,8 +261,17 @@ const UI = (() => {
 
       const info    = document.createElement('div');
       const name    = document.createElement('div'); name.className    = 'history-name';    name.textContent    = list.name;   // safe
-      const dateStr = list.date ? new Date(list.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-      const details = document.createElement('div'); details.className = 'history-details'; details.textContent = `📅 ${dateStr}  ·  ${list.items.length} itens`;
+      const dateStr = list.purchaseDate
+        ? new Date(list.purchaseDate).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+        : (list.date ? new Date(list.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+      const PAY_ICO = { dinheiro:'💵', pix:'⚡', cartao_credito:'💳 Cré', cartao_debito:'💳 Déb', vale_alimentacao:'🥗', vale_refeicao:'🍽️', outro:'📌' };
+      const pmts = Array.isArray(list.payments) && list.payments.length ? list.payments
+        : list.paymentMethod ? [{ method: list.paymentMethod, amount: 0 }] : [];
+      const payStr = pmts.length
+        ? '  ·  ' + pmts.map(p => (PAY_ICO[p.method] || '💳') + (p.amount > 0 ? ' R$' + p.amount.toFixed(0) : '')).join(' + ')
+        : '';
+      const mktStr = list.market ? `  ·  🏪 ${list.market}` : '';
+      const details = document.createElement('div'); details.className = 'history-details'; details.textContent = `📅 ${dateStr}  ·  ${list.items.length} itens${payStr}${mktStr}`;
       info.appendChild(name); info.appendChild(details);
 
       const acts   = document.createElement('div'); acts.className = 'history-actions';
