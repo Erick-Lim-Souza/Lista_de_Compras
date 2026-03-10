@@ -166,8 +166,20 @@
   </div>
 
   <footer class="footer">
-    Erick de Lima Souza · <a href="https://ericklima-dev.netlify.app/" target="_blank">Green Monster Project</a> © 2025
-  </footer>
+  <div class="footer-container">
+    <div class="footer-main">
+      <div class="footer-info">
+        <span class="footer-brand">Lista de Compras Inteligente</span>
+        <p class="footer-copy">&copy; 2025 – 2026. Todos os direitos reservados.</p>
+      </div>
+      <div class="footer-credits">
+        <p>Desenvolvido por <a href="https://ericklima-dev.netlify.app/" target="_blank" class="footer-link">Erick de Lima Souza</a></p>
+        <span class="footer-project">Green Monster Project</span>
+      </div>
+    </div>
+    <div class="footer-accent-bar"></div>
+  </div>
+</footer>
 
 </div>
 
@@ -218,15 +230,45 @@
 </div>
 
 <div id="saveListModal" class="modal">
-  <div class="modal-content">
+  <div class="modal-content save-modal-content">
     <h3>💾 Salvar Lista</h3>
     <div class="new-list-form">
+
       <input type="text" id="listNameInput" placeholder="Nome da lista..." maxlength="50">
-      <div class="input-field" style="margin-top:10px">
-        <label for="listDateInput" style="font-family:var(--mono);font-size:.65rem;color:var(--txt-3);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px">📅 Data da compra</label>
-        <input type="date" id="listDateInput" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg);color:var(--txt);font-family:var(--mono);font-size:.82rem;transition:border-color .17s;outline:none">
+
+      <!-- Date + Market row -->
+      <div class="save-meta-row">
+        <div class="save-meta-field">
+          <label class="meta-label">📅 Data da compra</label>
+          <input type="date" id="listDateInput" class="meta-date-input">
+        </div>
+        <div class="save-meta-field">
+          <label class="meta-label">🏪 Mercado</label>
+          <input type="text" id="marketInput" class="meta-market-input"
+            list="marketSuggestions" placeholder="Assaí, Atacadão…" maxlength="40" autocomplete="off">
+          <datalist id="marketSuggestions">
+            <option value="Assaí">
+            <option value="Atacadão">
+            <option value="Carrefour">
+            <option value="Extra">
+            <option value="Pão de Açúcar">
+            <option value="Dia">
+            <option value="Mercadinho">
+          </datalist>
+        </div>
       </div>
-      <div class="modal-buttons" style="margin-top:14px">
+
+      <!-- Payment: simple by default, splittable -->
+      <div class="pay-section">
+        <div class="pay-section-header">
+          <span class="meta-label">💳 Pagamento</span>
+          <span id="pmStatus" class="pm-status"></span>
+        </div>
+        <div id="pmRows"></div>
+        <button type="button" id="pmAddBtn" class="pay-add-btn">÷ dividir pagamento</button>
+      </div>
+
+      <div class="modal-buttons" style="margin-top:16px">
         <button id="saveCancel"  class="btn btn-secondary">Cancelar</button>
         <button id="saveConfirm" class="btn btn-primary">Salvar</button>
       </div>
