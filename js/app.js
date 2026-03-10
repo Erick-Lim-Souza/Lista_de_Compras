@@ -1,13 +1,12 @@
 /**
  * js/app.js
  * ─────────────────────────────────────────────────────────────
-* Orquestrador de aplicativos.
-* Este arquivo apenas conecta eventos → delega TODO o trabalho aos módulos:
-
-* Calculadora, Armazenamento, Interface do Usuário, Exportador
-*
-* Ordem de carregamento necessária (consulte index.html):
-* calculator.js → storage.js → ui.js → export.js → app.js
+ * Application orchestrator.
+ * This file only wires events → delegates ALL work to the modules:
+ *   Calculator, Storage, UI, Exporter
+ *
+ * Required load order (see index.html):
+ *   calculator.js → storage.js → ui.js → export.js → app.js
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -43,6 +42,129 @@ function _compareLists(items1, items2) {
 }
 
 // ── Main class ────────────────────────────────────────────────────
+
+// ── Payment constants ──────────────────────────────────────────
+const PAYMENT_METHODS = {
+  dinheiro:         '💵 Dinheiro',
+  pix:              '⚡ PIX',
+  cartao_credito:   '💳 Crédito',
+  cartao_debito:    '💳 Débito',
+  vale_alimentacao: '🥗 Vale Alimentação',
+  vale_refeicao:    '🍽️ Vale Refeição',
+  outro:            '📌 Outro',
+};
+function _paymentLabel(method) { return PAYMENT_METHODS[method] || method; }
+
+// ── PaymentManager ─────────────────────────────────────────────
+// Handles the multi-payment UI inside the "Salvar Lista" modal.
+// Public API: init(payments, total), get(), validate()
+const PaymentManager = (() => {
+  let _rows    = [];   // [{method, amount}]
+  let _total   = 0;   // list grand total for validation
+
+  function _fmt(n) {
+    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function _buildSelect(selected) {
+    const sel = document.createElement('select');
+    sel.className = 'pm-method-sel';
+    Object.entries(PAYMENT_METHODS).forEach(([k, v]) => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = v;
+      if (k === selected) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    return sel;
+  }
+
+  function _render() {
+    const container = document.getElementById('pmRows');
+    if (!container) return;
+    container.innerHTML = '';
+
+    _rows.forEach((row, i) => {
+      const div = document.createElement('div');
+      div.className = 'pm-row';
+
+      const sel = _buildSelect(row.method);
+      sel.addEventListener('change', () => { _rows[i].method = sel.value; _updateStatus(); });
+
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.className = 'pm-amount'; inp.step = '0.01'; inp.min = '0';
+      inp.placeholder = 'R$ 0,00';
+      inp.value = row.amount > 0 ? row.amount.toFixed(2) : '';
+      inp.addEventListener('input', () => { _rows[i].amount = parseFloat(inp.value) || 0; _updateStatus(); });
+
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'pm-del'; del.textContent = '✕';
+      del.title = 'Remover';
+      del.addEventListener('click', () => {
+        if (_rows.length === 1) return;   // keep at least one row
+        _rows.splice(i, 1); _render(); _updateStatus();
+      });
+      // Hide delete btn on single row
+      if (_rows.length === 1) del.style.visibility = 'hidden';
+
+      div.appendChild(sel); div.appendChild(inp); div.appendChild(del);
+      container.appendChild(div);
+    });
+
+    _updateStatus();
+    // Show/hide "÷ dividir" label
+    const addBtn = document.getElementById('pmAddBtn');
+    if (addBtn) addBtn.textContent = _rows.length === 1 ? '÷ dividir pagamento' : '+ outra forma';
+  }
+
+  function _updateStatus() {
+    const el = document.getElementById('pmStatus');
+    if (!el) return;
+    if (_rows.length === 0 || (_rows.length === 1 && _rows[0].amount === 0)) {
+      el.textContent = ''; el.className = 'pm-status'; return;
+    }
+    const sum  = _rows.reduce((s, r) => s + (r.amount || 0), 0);
+    const ok   = _total <= 0 || Math.abs(sum - _total) < 0.01;
+    const diff = _total - sum;
+    if (ok) {
+      el.textContent = '✓ fechado'; el.className = 'pm-status ok';
+    } else {
+      const sign = diff > 0 ? 'faltam' : 'sobram';
+      el.textContent = `${sign} R$ ${_fmt(Math.abs(diff))}`; el.className = 'pm-status warn';
+    }
+  }
+
+  function init(payments, total) {
+    _total = parseFloat(total) || 0;
+    if (Array.isArray(payments) && payments.length) {
+      _rows = payments.map(p => ({ method: p.method || 'pix', amount: parseFloat(p.amount) || 0 }));
+    } else {
+      // Default: one row, pre-fill with total
+      _rows = [{ method: 'pix', amount: _total }];
+    }
+    _render();
+  }
+
+  function add() {
+    const remaining = _total - _rows.reduce((s, r) => s + (r.amount || 0), 0);
+    _rows.push({ method: 'pix', amount: Math.max(0, parseFloat(remaining.toFixed(2))) });
+    _render();
+  }
+
+  function get() {
+    return _rows.filter(r => r.method && r.amount > 0);
+  }
+
+  function validate() {
+    const pmts = get();
+    if (!pmts.length) return true;                         // no payments = ok (optional)
+    if (_total <= 0)  return true;                         // no total to validate against
+    const sum = pmts.reduce((s, r) => s + r.amount, 0);
+    return Math.abs(sum - _total) < 0.01;
+  }
+
+  return { init, add, get, validate };
+})();
+
 class ShoppingList {
 
   constructor() {
@@ -161,6 +283,11 @@ class ShoppingList {
     this.historyClose.addEventListener('click',   () => UI.hideModal(this.historyModal));
     this.saveCancel.addEventListener('click',     () => UI.hideModal(this.saveModal));
     this.saveConfirm.addEventListener('click',    () => this._saveCurrentList());
+
+    // PaymentManager: wire "dividir pagamento" button
+    const pmAddBtn = document.getElementById('pmAddBtn');
+    if (pmAddBtn) pmAddBtn.addEventListener('click', () => PaymentManager.add());
+
     this.compareClose.addEventListener('click',   () => UI.hideModal(this.compareModal));
     this.compareExec.addEventListener('click',    () => this._executeComparison());
     document.getElementById('priceHistoryClose')?.addEventListener('click',
@@ -289,7 +416,19 @@ class ShoppingList {
 
   // ── Item actions (called from ui.js via handlers) ──────────────
   toggleItem(index) {
-    this.items[index].completed = !this.items[index].completed;
+    const item = this.items[index];
+    item.completed = !item.completed;
+
+    // Feedback tátil (40ms) — confirma o check sem precisar olhar pro celular
+    if ('vibrate' in navigator) navigator.vibrate(40);
+
+    // Auto-sort: itens concluídos vão pro fim, pendentes ficam no topo
+    // Preserva a ordem relativa dentro de cada grupo
+    this.items.sort((a, b) => {
+      if (a.completed === b.completed) return 0;
+      return a.completed ? 1 : -1;
+    });
+
     this._saveToStorage();
     this.render();
   }
@@ -382,7 +521,8 @@ Formato: AAAA-MM-DD`,
     const parsed = new Date(newDateStr + 'T12:00:00');
     if (isNaN(parsed)) { UI.showToast('Data inválida!'); return; }
 
-    Storage.saveNamedList(list.name, list.items, list.listType, parsed.toISOString()); // purchaseDate
+    Storage.saveNamedList(list.name, list.items, list.listType,
+      parsed.toISOString(), list.payments || [], list.total || 0, list.market || null);
     this._showHistory();   // refresh
     UI.showToast(`Data atualizada para ${parsed.toLocaleDateString('pt-BR')}!`);
   }
@@ -411,17 +551,23 @@ Formato: AAAA-MM-DD`,
 
   _showSaveDialog() {
     this.listNameInput.value = this.currentListName;
-    // Pre-fill with the purchaseDate if already set; leave blank for new lists
     const saved = Storage.getSavedLists().find(l => l.name === this.currentListName);
+
+    // Date: existing purchaseDate or today
     if (this.listDateInput) {
-      if (saved?.purchaseDate) {
-        // Lista já tem data de compra definida — mostrar ela
-        this.listDateInput.value = new Date(saved.purchaseDate).toISOString().slice(0, 10);
-      } else {
-        // Lista nova ou sem data de compra — pré-preenche com hoje
-        this.listDateInput.value = new Date().toISOString().slice(0, 10);
-      }
+      this.listDateInput.value = saved?.purchaseDate
+        ? new Date(saved.purchaseDate).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
     }
+
+    // PaymentManager: init with existing payments + current list total
+    const total = Calculator.calculateTotals(this.items).general;
+    PaymentManager.init(saved?.payments || null, total);
+
+    // Market: restore if previously saved
+    const marketEl = document.getElementById('marketInput');
+    if (marketEl) marketEl.value = saved?.market || '';
+
     UI.showModal(this.saveModal);
     this.listNameInput.focus();
   }
@@ -429,16 +575,30 @@ Formato: AAAA-MM-DD`,
   _saveCurrentList() {
     const name = this.listNameInput.value.trim();
     if (!name) { UI.showToast('Digite um nome!'); return; }
-    // purchaseDate: only set when user explicitly chose a date in the picker
-    const dateStr = this.listDateInput?.value;
-    const purchaseDate = dateStr
-      ? new Date(dateStr + 'T12:00:00').toISOString()   // noon to avoid timezone drift
-      : null;   // null = não definida, dashboard mostrará aviso "(sem data)"
-    Storage.saveNamedList(name, this.items, this.currentListType, purchaseDate);
+
+    const dateStr      = this.listDateInput?.value;
+    const purchaseDate = dateStr ? new Date(dateStr + 'T12:00:00').toISOString() : null;
+    const payments     = PaymentManager.get();
+    const total        = Calculator.calculateTotals(this.items).general;
+
+    // Warn if payments don't match total (don't block — user may not have filled amounts)
+    if (payments.length && !PaymentManager.validate()) {
+      const sum  = payments.reduce((s, p) => s + p.amount, 0);
+      const diff = (total - sum).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      UI.showToast(`⚠️ Pagamentos não fecham o total (diferença: R$ ${diff})`);
+      // continue saving anyway — user choice
+    }
+
+    const market = document.getElementById('marketInput')?.value.trim() || null;
+    Storage.saveNamedList(name, this.items, this.currentListType, purchaseDate, payments, total, market);
     this.currentListName = name;
     this.currentListNameEl.textContent = name;
     UI.hideModal(this.saveModal);
-    UI.showToast('Lista salva!');
+
+    // Toast summary
+    const payStr    = payments.length ? ' · ' + payments.map(p => _paymentLabel(p.method)).join(' + ') : '';
+    const mktStr    = market ? ` · 🏪 ${market}` : '';
+    UI.showToast('Lista salva!' + payStr + mktStr);
   }
 
   _createNewList() {
