@@ -18,7 +18,7 @@
 
   <!-- ── Header ── -->
   <header class="header">
-    <h1>🛒 Lista de Compras <span class="badge">v2.0</span></h1>
+    <h1>🛒 Lista de Compras <span class="badge">v3.0</span></h1>
     <div class="header-actions">
       <button id="homeButton" class="btn btn-secondary btn-sm">🏠 Home</button>
       <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
@@ -32,54 +32,52 @@
 
     <section class="about">
       <h2>Sobre a Aplicação</h2>
-      <p>Aplicação web moderna para gerenciamento de listas de compras. Funciona offline como PWA (Progressive Web App) — pode ser instalada na tela inicial do seu celular ou desktop.</p>
-      <p>Adicione itens, categorize, compare preços de atacado e varejo, salve listas anteriores e exporte em PDF, TXT ou CSV.</p>
-      <p>Desenvolvida com foco em praticidade, velocidade e uso offline.</p>
+      <p>Aplicação web moderna para gerenciamento de listas de compras com análise financeira integrada. Funciona offline como PWA — instale na tela inicial do celular ou desktop.</p>
+      <p>Adicione itens, compare preços de atacado e varejo, salve listas com data de compra, forma de pagamento e mercado. Analise seus gastos no dashboard com gráficos interativos.</p>
     </section>
 
     <section class="how-to-use">
       <h2>Como Usar</h2>
       <ol>
-        <li>Ao abrir, escolha o tipo de lista (Supermercado, Açougue, Feira etc.).</li>
-        <li>Digite o nome do item, selecione categoria, quantidade e unidade.</li>
-        <li>Preencha o preço de Atacado e/ou Varejo para cálculo automático da economia.</li>
-        <li>Clique em <strong>Adicionar Item</strong> ou pressione <code>Ctrl+Enter</code>.</li>
-        <li>Marque itens como comprados tocando no checkbox.</li>
-        <li>Salve listas com nome para acessar no histórico depois.</li>
-        <li>Compare duas listas salvas para ver diferenças.</li>
-        <li>Exporte a lista em PDF, TXT ou CSV/Excel.</li>
+        <li>Escolha o tipo de lista (Supermercado, Açougue, Feira, etc.).</li>
+        <li>Digite o nome do item, categoria, quantidade e unidade.</li>
+        <li>Preencha preço de Atacado e/ou Varejo para calcular a economia automaticamente.</li>
+        <li>Adicione itens com <strong>Adicionar Item</strong> ou <code>Ctrl+Enter</code>.</li>
+        <li>Marque itens como comprados — o app vibra levemente e auto-organiza a lista.</li>
+        <li>Ao salvar, preencha data da compra, mercado e forma(s) de pagamento.</li>
+        <li>Acesse o <strong>Dashboard</strong> para análises completas dos seus gastos.</li>
       </ol>
     </section>
 
     <section class="features">
-      <h2>Recursos</h2>
+      <h2>Recursos v3.0</h2>
       <ul>
-        <li>Suporte a itens em Kg e Gramas — cálculo preciso por peso</li>
-        <li>Campos separados de Atacado e Varejo com cálculo de economia</li>
-        <li>Múltiplos tipos de lista com categorias adequadas</li>
-        <li>Categorias personalizadas por tipo de lista</li>
-        <li>Histórico de listas salvas localmente</li>
-        <li>Comparativo entre duas listas</li>
-        <li>Exportação PDF, TXT e CSV</li>
-        <li>Compartilhamento via Web Share API</li>
-        <li>Modo escuro / claro</li>
-        <li>PWA — instalável no celular e desktop</li>
-        <li>Funciona 100% offline após instalação</li>
+        <li>💰 Atacado e Varejo — cálculo automático de economia</li>
+        <li>📅 Data de compra separada da data de salvamento</li>
+        <li>💳 Pagamento múltiplo — divida entre PIX, Vale Alimentação, Crédito etc.</li>
+        <li>🏪 Campo Mercado — Assaí, Atacadão, Carrefour...</li>
+        <li>📳 Vibração tátil ao marcar itens (mobile)</li>
+        <li>🔃 Auto-sort — itens concluídos descem automaticamente</li>
+        <li>⏳ Ciclo de Consumo — previsão de reposição por produto</li>
+        <li>📊 Dashboard com 10+ gráficos e análises</li>
+        <li>🔮 Previsão de gasto do próximo mês (média ponderada)</li>
+        <li>📈 Inflação da cesta — evolução mensal dos preços</li>
+        <li>🏪 Ranking de economia por mercado</li>
+        <li>🗂️ Histórico de preços por produto</li>
+        <li>🔄 Comparativo entre duas listas</li>
+        <li>📤 Exportação PDF, TXT e CSV</li>
+        <li>🌙 Modo escuro / claro</li>
+        <li>⚡ PWA — funciona 100% offline</li>
       </ul>
     </section>
 
     <section class="version">
-      <h2>Versão 1.0.1</h2>
-      <p>Melhorias desta versão:</p>
+      <h2>Histórico de Versões</h2>
       <ul>
-        <li>Cálculo preciso para produtos vendidos em Kg e gramas</li>
-        <li>Interface completamente remodelada — visual tech-minimal</li>
-        <li>Botão de instalação PWA para celular e desktop</li>
-        <li>Correção do modo escuro/claro na página de versão</li>
-        <li>Comparativo entre listas</li>
-        <li>Campos de Atacado e Varejo</li>
-        <li>Exportação PDF corrigida</li>
-        <li>Categorias personalizadas</li>
+        <li><strong>v3.0</strong> — Schema v3: pagamentos múltiplos, campo mercado, ciclo de consumo, footer elegante, ranking por mercado, dashboard com 10+ gráficos</li>
+        <li><strong>v2.0</strong> — Schema v2: data de compra separada, PaymentManager, dashboard com inflação e previsão</li>
+        <li><strong>v1.0.1</strong> — Cálculo de kg/gramas, modo escuro, comparativo de listas, exportação PDF</li>
+        <li><strong>v1.0</strong> — Versão inicial</li>
       </ul>
     </section>
 
@@ -92,15 +90,26 @@
   </div>
 
   <footer class="footer">
-    Erick de Lima Souza · <a href="https://ericklima-dev.netlify.app/" target="_blank">Green Monster Project</a> © 2025
+    <div class="footer-container">
+      <div class="footer-main">
+        <div class="footer-info">
+          <span class="footer-brand">Lista de Compras Inteligente</span>
+          <p class="footer-copy">&copy; 2025 – 2026. Todos os direitos reservados.</p>
+        </div>
+        <div class="footer-credits">
+          <p>Desenvolvido por <a href="https://ericklima-dev.netlify.app/" target="_blank" class="footer-link">Erick de Lima Souza</a></p>
+          <span class="footer-project">Green Monster Project</span>
+        </div>
+      </div>
+      <div class="footer-accent-bar"></div>
+    </div>
   </footer>
 
 </div><!-- /container -->
 
-<!-- ══ DARK MODE — standalone, sem dependência do script.js ══ -->
+<!-- ══ DARK MODE — standalone ══ -->
 <script>
   (function () {
-    /* helpers */
     function getTheme()  { return localStorage.getItem('theme') || 'light'; }
     function setTheme(t) {
       document.documentElement.setAttribute('data-theme', t);
@@ -108,26 +117,16 @@
       const icon = document.querySelector('.theme-icon');
       if (icon) icon.textContent = t === 'dark' ? '☀️' : '🌙';
     }
-
-    /* apply saved theme immediately */
     setTheme(getTheme());
-
     document.addEventListener('DOMContentLoaded', function () {
-      /* dark mode toggle */
       const toggle = document.getElementById('darkModeToggle');
-      if (toggle) {
-        toggle.addEventListener('click', function () {
-          setTheme(getTheme() === 'dark' ? 'light' : 'dark');
-        });
-      }
-
-      /* home button */
+      if (toggle) toggle.addEventListener('click', function () {
+        setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+      });
       const home = document.getElementById('homeButton');
-      if (home) {
-        home.addEventListener('click', function () {
-          window.location.href = 'index.html';
-        });
-      }
+      if (home) home.addEventListener('click', function () {
+        window.location.href = 'index.html';
+      });
     });
   })();
 </script>
