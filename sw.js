@@ -10,7 +10,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 
-const CACHE_VER   = 'lista-compras-v2';
+const CACHE_VER   = 'lista-compras-v3';
 const CACHE_STATIC = `${CACHE_VER}-static`;
 
 // Assets that must be cached on install (app shell)
@@ -18,6 +18,7 @@ const SHELL = [
   '/',
   '/index.html',
   '/versao.html',
+  '/dashboard.html',
   '/styles.css',
   '/js/calculator.js',
   '/js/storage.js',
