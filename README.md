@@ -1,6 +1,6 @@
 # 🛒 Lista de Compras Inteligente
 
-> PWA offline-first para gerenciar listas de compras com comparação de preços atacado/varejo, histórico de gastos e dashboard analítico.
+> PWA offline-first para gerenciar listas de compras com comparação de preços atacado/varejo, histórico de gastos, dashboard analítico com inteligência preditiva e sugestão automática de listas baseada em ciclos de consumo.
 
 **Desenvolvido por** Erick de Lima Souza · [Green Monster Project](https://ericklima-dev.netlify.app/)  
 **Live demo:** [lista-de-compras-six-brown.vercel.app](https://lista-de-compras-six-brown.vercel.app/)
@@ -11,9 +11,10 @@
 
 ### 🛍️ Gestão de Listas
 - Adicionar, editar e remover itens com nome, categoria, quantidade e unidade
-- Marcar itens como comprados (checkbox por item)
+- Marcar itens como comprados com **vibração háptica** (40ms) em dispositivos móveis
+- **Auto-ordenação:** itens comprados descem automaticamente para o final da lista
 - Filtrar por **Todos / Pendentes / Comprados**
-- Suporte a múltiplos tipos de lista: Supermercado, Feira Livre, Açougue, Farmácia, Roupas, Eletrônicos, Casa e Jardim
+- Suporte a múltiplos tipos de lista: Supermercado 🛒, Feira Livre 🥕, Açougue 🍖, Farmácia 💊, Roupas 👕, Eletrônicos 📱, Casa e Jardim 🏠
 - Categorias personalizadas por tipo de lista (com emoji)
 
 ### 💰 Comparação de Preços
@@ -22,6 +23,31 @@
 - Totais calculados em tempo real na barra de estatísticas
 - Cálculo automático de **economia** (varejo − atacado)
 
+### 🔁 Ciclos de Consumo e Sugestão de Listas
+- Motor de análise `estimateProductCycle()` detecta automaticamente o **intervalo médio de recompra** de cada produto baseado no histórico de listas salvas
+- Indicador de urgência inline em cada item da lista:
+  - `⏳ Dura ~25 dias` — produto em dia
+  - `🔔 ~3d p/ repor` — acabando (≥ 80% do ciclo)
+  - `⚠️ Acaba há 5d` — vencido
+- **Modal de Sugestão de Lista** (botão `💡` no header):
+  - Abas por tipo de lista + aba "Todos"
+  - Chips de resumo: vencidos, acabando, em dia, novos
+  - Indicador de confiança por produto: `●●●` alta (7+ compras) · `●●○` média (4–6) · `●○○` baixa (2–3)
+  - Barra de progresso de urgência por produto
+  - Seleção manual individual ou `☑ Todos urgentes` (fallback para todos se nenhum for urgente)
+  - Itens com 1 só ocorrência exibidos com badge `❓ Novo`
+  - Seleção multi-tipo → dialog pergunta qual tipo de lista criar
+
+### 💳 Pagamentos Múltiplos
+- Campo de **forma de pagamento** ao salvar: PIX, Dinheiro, Cartão de Crédito, Cartão de Débito, Vale Alimentação, Vale Refeição
+- Botão `÷ dividir pagamento` para registrar múltiplas formas numa mesma compra
+- Badge `✓ fechado` quando os valores somam exatamente o total; `faltam R$ X` quando há divergência
+- Alerta de divergência mas sem bloqueio de salvamento
+
+### 🏪 Campo Mercado
+- Registro do estabelecimento em cada lista salva (Assaí, Atacadão, Carrefour, Extra, Pão de Açúcar, Dia, Mercadinho ou campo livre)
+- Alimenta os gráficos de **Gastos por Mercado** e **Economia por Mercado** no dashboard
+
 ### 📈 Histórico de Preços
 - Cada item com preço salvo gera um snapshot automático no localStorage
 - Máximo de 30 entradas por produto
@@ -29,9 +55,9 @@
 - Modal de histórico completo com tabela por data e coluna de variação
 
 ### 💾 Gestão de Listas Salvas
-- Salvar listas com nome personalizado
+- Salvar listas com nome personalizado, tipo, mercado e data de compra
 - Carregar ou excluir listas salvas
-- Modal de histórico com data e contagem de itens
+- Modal de histórico com data, contagem de itens, forma de pagamento e mercado
 - Comparar duas listas salvas lado a lado (itens em comum, exclusivos de cada lista)
 
 ### 📤 Exportação
@@ -48,27 +74,55 @@
   - Histórico de preços mesclado com de-duplicação por data
   - Categorias personalizadas mescladas por tipo de lista
 
-### 📊 Dashboard Analítico (`dashboard.html`)
-- **5 KPIs** animados: total gasto, média mensal, mês mais caro, nº de listas, ticket médio
-- **Gráfico de barras mensal** — variação mês a mês com tooltip de percentual
-- **Linha acumulada** — curva de gasto total + barrinhas por lista
-- **Pizza por categoria** — distribuição percentual dos gastos
-- **Mapa de calor anual** — 12 meses com intensidade de cor proporcional ao gasto
-- **Timeline de compras** — cards de cada lista no período selecionado
-- **Top 12 produtos** — ranking com barra de distribuição e contador de ocorrências
-- Filtros rápidos: 7D / 30D / 3M / 6M / 1A / Tudo
-- Período customizado com seletor de datas
-- **Modo demonstração automático** — gera 18 listas fictícias com dados verossímeis quando ainda não há listas salvas
+---
 
-### 📲 PWA (Progressive Web App)
+## 📊 Dashboard Analítico (`dashboard.html`)
+
+### Filtros Globais
+- **Período:** 7D / 30D / 3M / 6M / 1A / Tudo + seletor de datas customizado
+- **Tipo de lista:** Todos / Supermercado / Feira Livre / Açougue / Farmácia / Roupas / Eletrônicos / Casa e Jardim — filtro dinâmico populado pelos tipos presentes no histórico real; todos os 13 gráficos respondem
+
+### KPIs (5 cards animados)
+Total gasto · Média por mês · Mês mais caro · Nº de listas · Ticket médio
+
+### Gráficos (13 visualizações)
+
+| # | Gráfico | Tipo | Dados |
+|---|---------|------|-------|
+| 01 | Gasto Mensal | Barras verticais | Soma por mês, barra de pico destacada, tooltip com Δ% |
+| 02 | Evolução de Gastos | Linha + barras (eixo duplo) | Acumulado + valor individual por lista |
+| 03 | Gastos por Categoria | Donut | Custo por categoria dos itens (nível de produto) |
+| 04 | Mapa de Calor Anual | 12 células / navegação por ano | Intensidade proporcional ao mês de pico |
+| 05 | Formas de Pagamento | Donut | Total pago por modalidade (suporta divisão) |
+| 06 | Ticket Médio por Pagamento | Barras horizontais | Média gasta quando usa cada método |
+| 07 | Gastos por Mercado | Donut | Proporção do gasto por estabelecimento |
+| 08 | Economia por Mercado | Ranking c/ barras | Economia acumulada `(varejo − atacado) × qty` |
+| 09 | Tendência de Inflação | Linha dupla (eixo duplo) | Gasto médio/mês + variação % desde o 1º mês |
+| 10 | Previsão do Próximo Mês | Card preditivo | Média móvel ponderada (pesos 1-2-3, janela 3 meses) |
+| 11 | Evolução de Preços | Barras horizontais | Top 8 produtos por variação absoluta de preço |
+| 12 | Top 12 Produtos | Tabela c/ barra | Ranking por total gasto, qty acumulada, conversão g→kg |
+| 13 | Linha do Tempo | Cards cronológicos | Cada lista com data, tipo, mercado e pagamentos |
+
+### Modo demonstração automático
+Gera 18 listas fictícias com dados verossímeis quando o usuário ainda não possui listas salvas.
+
+### Guia dos Gráficos (`ajuda.html`)
+Página de documentação interativa acessível pelo botão `❓ Guia dos Gráficos` no header do dashboard:
+- Explicação detalhada de cada um dos 13 gráficos
+- Quais dados precisam estar preenchidos (badges: obrigatório / recomendado)
+- Algoritmos reais com fórmulas (média móvel ponderada da previsão, cálculo de economia, intensidade do heatmap)
+- Dicas práticas de preenchimento
+- Índice navegável com scroll suave
+
+---
+
+## 📲 PWA (Progressive Web App)
+
 - Instalável como app nativo em Android, iOS e desktop
 - **Funciona 100% offline** após o primeiro acesso
 - Banner de instalação inteligente (descartável, salva preferência)
 - Instruções de instalação para iOS (Add to Home Screen)
-
-### 🌙 Tema Dark/Light
-- Toggle persistido no localStorage
-- Sincronizado entre `index.html`, `versao.html` e `dashboard.html`
+- Cache versionado `v3` no Service Worker
 
 ---
 
@@ -76,19 +130,20 @@
 
 ```
 lista-de-compras/
-├── index.html          # App principal
-├── dashboard.html      # Dashboard analítico
+├── index.html          # App principal (430 linhas)
+├── dashboard.html      # Dashboard analítico (1.246 linhas)
+├── ajuda.html          # Guia dos Gráficos (1.191 linhas)
 ├── versao.html         # Página "Sobre / Changelog"
-├── styles.css          # Design system completo
-├── sw.js               # Service Worker (cache versionado + offline)
+├── styles.css          # Design system — única fonte de estilos (1.647 linhas)
+├── sw.js               # Service Worker cache v3 (offline-first)
 ├── manifest.json       # PWA manifest
 │
 ├── js/
-│   ├── calculator.js   # Motor de cálculo puro (sem DOM)
-│   ├── storage.js      # Persistência, backup e histórico de preços
-│   ├── ui.js           # Renderização DOM (sem innerHTML para dados do usuário)
-│   ├── export.js       # Exportação TXT / PDF / CSV
-│   └── app.js          # Orquestrador — conecta todos os módulos
+│   ├── calculator.js   # Cálculos, ciclos de consumo, análise de produtos (315 linhas)
+│   ├── storage.js      # Persistência, schema v3, backup, migração automática (265 linhas)
+│   ├── ui.js           # Renderização DOM — zero innerHTML para dados do usuário (436 linhas)
+│   ├── export.js       # Exportação TXT / PDF / CSV (150 linhas)
+│   └── app.js          # Orquestrador: eventos, PaymentManager, SuggestionManager (1.103 linhas)
 │
 └── img/
     └── icons/          # Ícones PWA
@@ -96,17 +151,15 @@ lista-de-compras/
 
 ---
 
-## 🧱 Arquitetura Modular (v2.0)
-
-O `script.js` monolítico de **1.479 linhas** foi refatorado em 5 módulos com responsabilidade única:
+## 🧱 Arquitetura Modular (v3.0)
 
 | Módulo | Responsabilidade | Linhas |
 |--------|-----------------|--------|
-| `calculator.js` | Cálculos puros, normalização de unidades, tendência de preço | 110 |
-| `storage.js` | Todo o localStorage: listas, histórico, backup, temas | 200 |
-| `ui.js` | Renderização DOM, sanitização de HTML, modals, toast | 407 |
-| `export.js` | Geração de TXT, PDF (jsPDF) e CSV | 150 |
-| `app.js` | Orquestrador: binding de eventos, delegação para módulos | 522 |
+| `calculator.js` | Cálculos puros: preços, unidades, tendências, ciclos de consumo, análise de produtos | 315 |
+| `storage.js` | localStorage: listas, histórico, backup, tema, migração v1→v2→v3 | 265 |
+| `ui.js` | Renderização DOM, sanitização HTML, modals, toasts, histórico | 436 |
+| `export.js` | TXT, PDF (jsPDF) e CSV | 150 |
+| `app.js` | Orquestrador: eventos, `PaymentManager`, `SuggestionManager`, `_applySuggestedList` | 1.103 |
 
 **Ordem de carregamento** (sem bundler necessário):
 ```html
@@ -119,32 +172,32 @@ O `script.js` monolítico de **1.479 linhas** foi refatorado em 5 módulos com r
 
 ---
 
-## 🔐 Segurança
-
-- **Zero `innerHTML` com dados do usuário** — toda string vinda do usuário usa `textContent` ou `createElement`
-- Função `sanitize(str)` em `ui.js` para casos de exibição dinâmica
-- `crypto.randomUUID()` para IDs de itens (com fallback seguro via `getRandomValues`)
-
----
-
-## 💾 Schema do localStorage
+## 💾 Schema do localStorage (v3)
 
 Chave: `shoppingListData`
 
 ```json
 {
+  "schemaVersion": 3,
   "theme": "dark",
   "currentList": {
-    "items": [...],
+    "items": [],
     "name": "Lista Atual",
     "listType": "Supermercado"
   },
   "savedLists": [
     {
       "name": "Feira 15/06",
-      "items": [...],
+      "items": [],
       "listType": "Feira Livre",
-      "date": "2025-06-15T14:32:00.000Z"
+      "createdAt": "2025-06-15T12:00:00.000Z",
+      "purchaseDate": "2025-06-15T12:00:00.000Z",
+      "payments": [
+        { "method": "pix", "amount": 120.00 }
+      ],
+      "market": "Assaí",
+      "total": 120.00,
+      "date": "2025-06-15T12:00:00.000Z"
     }
   ],
   "customCategories": {
@@ -154,19 +207,52 @@ Chave: `shoppingListData`
   },
   "priceHistory": {
     "arroz_5kg": [
-      { "date": "2025-04-01T...", "wholesale": 22.90, "retail": 28.50 },
-      { "date": "2025-05-10T...", "wholesale": 23.50, "retail": 29.90 }
+      { "date": "2025-04-01T12:00:00.000Z", "wholesale": 22.90, "retail": 28.50 }
     ]
   },
-  "feedbacks": [...]
+  "feedbacks": []
 }
 ```
 
+**Migração automática:** `storage.js` detecta `schemaVersion` e migra silenciosamente de v1/v2 para v3.  
+Principal mudança da v3: `payments[]` (array) substitui `paymentMethod` (string) + adição de `purchaseDate` e `market`.
+
 ---
 
-## 🛠️ Service Worker (v2)
+## 🤖 Motor de Ciclos de Consumo (`calculator.js`)
 
-Estratégia de cache por tipo de recurso:
+```js
+estimateProductCycle(itemName, savedLists)
+// → { avgDays, daysSinceLast, occurrences, confidence }
+
+productCycleStatus(cycleResult)
+// → { urgency: 'ok' | 'soon' | 'overdue' | 'unknown', daysLeft }
+
+analyzeAllProducts(savedLists, { minOccurrences })
+// → [{ name, norm, urgency, avgDays, daysSinceLast, confidence,
+//      lastQty, lastUnit, listType, category }]
+```
+
+**Níveis de urgência:**
+
+| Nível | Critério | Visual |
+|-------|----------|--------|
+| `overdue` | `daysSinceLast ≥ avgDays` | Barra vermelha |
+| `soon` | `daysSinceLast ≥ avgDays × 0.8` | Barra laranja |
+| `ok` | `daysSinceLast < avgDays × 0.8` | Barra verde |
+| `unknown` | Apenas 1 ocorrência | Badge `❓ Novo` |
+
+---
+
+## 🔐 Segurança
+
+- **Zero `innerHTML` com dados do usuário** — toda string vinda do usuário usa `textContent` ou `createElement`
+- Função `sanitize(str)` em `ui.js` para casos de exibição dinâmica
+- `crypto.randomUUID()` para IDs de itens (com fallback seguro via `getRandomValues`)
+
+---
+
+## 🛠️ Service Worker (v3)
 
 | Recurso | Estratégia |
 |---------|-----------|
@@ -174,9 +260,7 @@ Estratégia de cache por tipo de recurso:
 | CSS, JS, fontes, imagens | **Cache-first** → atualiza em background |
 | Todo o resto | **Stale-while-revalidate** |
 
-- Auto-ativação: novo SW toma controle imediatamente (`skipWaiting + clients.claim`)
-- Limpeza automática de caches de versões anteriores no `activate`
-- Aceita mensagem `SKIP_WAITING` da página para update forçado
+Shell cacheado: `index.html`, `dashboard.html`, `ajuda.html`, `versao.html`, `styles.css`, todos os módulos JS.
 
 ---
 
@@ -185,7 +269,7 @@ Estratégia de cache por tipo de recurso:
 | Biblioteca | Uso |
 |-----------|-----|
 | [jsPDF 2.5.1](https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js) | Exportação PDF |
-| [Chart.js 4.4.1](https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js) | Gráficos do dashboard |
+| [Chart.js 4.4.1](https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js) | 13 gráficos do dashboard |
 | [Bricolage Grotesque](https://fonts.google.com/specimen/Bricolage+Grotesque) | Tipografia principal |
 | [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono) | Tipografia monospace (valores, badges) |
 
@@ -195,60 +279,46 @@ Estratégia de cache por tipo de recurso:
 
 ## 🚀 Como Usar
 
-### Deploy estático (Vercel / Netlify / GitHub Pages)
-
-Faça o upload de todos os arquivos para a raiz do repositório. Não há etapa de build.
-
 ```bash
 # Clonar e abrir localmente
 git clone https://github.com/seu-usuario/lista-de-compras.git
 cd lista-de-compras
-# Abrir index.html no navegador ou usar qualquer servidor local:
 npx serve .
 ```
 
-### Estrutura de arquivos para o deploy
-
-```
-/
-├── index.html
-├── dashboard.html
-├── versao.html
-├── styles.css
-├── sw.js
-├── manifest.json
-├── js/
-│   ├── calculator.js
-│   ├── storage.js
-│   ├── ui.js
-│   ├── export.js
-│   └── app.js
-└── img/
-    └── icons/
-```
+Ou faça deploy direto no Vercel / Netlify / GitHub Pages — não há etapa de build.
 
 ---
 
 ## 📋 Changelog
 
+### v3.0 — Ciclos de Consumo · Pagamentos · Mercado · Dashboard Avançado
+- 🔁 **Ciclos de consumo** — `estimateProductCycle()` detecta padrão de recompra de cada produto
+- 💡 **Sugestão automática de lista** — modal com tabs por tipo, urgência, confiança e seleção inteligente
+- 💳 **Pagamentos múltiplos** — `payments[]` array, split de pagamento, badge de fechamento
+- 🏪 **Campo Mercado** — estabelecimento por lista, alimenta gráficos de mercado no dashboard
+- 📊 **Dashboard:** 8 novos gráficos (pagamentos, mercado, economia, inflação, previsão, evolução de preços)
+- 🎛️ **Filtro de tipo** no dashboard — todos os 13 gráficos respondem ao tipo selecionado
+- 📖 **Guia dos Gráficos** (`ajuda.html`) — documentação interativa com fórmulas e algoritmos reais
+- 📳 **Vibração háptica** no toggle de item (40ms)
+- 🔃 **Auto-sort** — itens comprados descem automaticamente para o fim da lista
+- 🎨 **CSS unificado** — `styles.css` é a única fonte de estilos para todas as páginas
+- 🛡️ **Schema v3** com migração automática de v1/v2
+
 ### v2.0 — Refatoração + Dashboard + Backup
 - ♻️ **Arquitetura modular** — `script.js` dividido em 5 módulos focados
-- 📊 **Dashboard analítico** (`dashboard.html`) com 5 KPIs, 4 gráficos, heatmap e top produtos
-- 📈 **Histórico de preços** por produto com badge de tendência inline (↑ ↓ →)
-- 💾 **Backup JSON** — export/import com merge inteligente (não substitui dados existentes)
-- 🔐 **Sanitização de HTML** — zero `innerHTML` para dados do usuário
-- 🔑 **`crypto.randomUUID()`** para IDs de itens
-- 🔄 **Service Worker v2** — cache versionado, auto-update, offline fallback por tipo de recurso
-- 🎨 **Design tech-minimal** — JetBrains Mono + Bricolage Grotesque, CSS variables completo, dark mode nativo
+- 📊 **Dashboard analítico** com KPIs, gráficos, heatmap e top produtos
+- 📈 **Histórico de preços** com badge de tendência inline (↑ ↓ →)
+- 💾 **Backup JSON** com merge inteligente
+- 🔐 **Sanitização HTML** — zero `innerHTML` para dados do usuário
+- 🔄 **Service Worker v2** — cache versionado, auto-update
 
 ### v1.0 — Versão inicial
-- Adicionar, editar, excluir e marcar itens como comprados
-- Filtros por status (todos / pendentes / comprados)
-- Múltiplos tipos de lista e categorias personalizadas
-- Cálculo de preço atacado/varejo com conversão de unidades (g→kg, ml→L)
+- CRUD de itens, filtros, tipos de lista, categorias personalizadas
+- Comparação atacado/varejo com conversão de unidades
 - Exportação TXT, PDF e CSV
 - Salvar, carregar e comparar listas
-- PWA installável com suporte offline
+- PWA instalável com suporte offline
 - Tema dark/light persistido
 
 ---
