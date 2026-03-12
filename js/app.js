@@ -43,6 +43,329 @@ function _compareLists(items1, items2) {
 
 // ── Main class ────────────────────────────────────────────────────
 
+
+// ── SuggestionManager ──────────────────────────────────────────────
+// Handles the "💡 Sugestões" modal.  All DOM work isolated here.
+const SuggestionManager = (() => {
+  const LIST_TYPE_ICONS = {
+    'Supermercado':  '🛒',
+    'Feira Livre':   '🥕',
+    'Açougue':       '🍖',
+    'Farmácia':      '💊',
+    'Roupas':        '👕',
+    'Eletrônicos':   '📱',
+    'Casa e Jardim': '🏠',
+  };
+  const URGENCY_LABELS = {
+    overdue: '⚠️ Acabou',
+    soon:    '🔔 Acabando',
+    ok:      '✅ Ok',
+    unknown: '❓ Novo',
+  };
+
+  let _allProducts = [];     // full analysis result
+  let _selected    = new Set();
+  let _activeType  = 'Todos';
+
+  // ── render type tabs ──────────────────────────────────────────
+  function _renderTabs() {
+    const wrap = document.getElementById('suggestTypeTabs');
+    if (!wrap) return;
+
+    const groups = {};
+    _allProducts.forEach(p => {
+      groups[p.listType] = groups[p.listType] || { overdue: 0, soon: 0, total: 0 };
+      groups[p.listType].total++;
+      if (p.urgency === 'overdue') groups[p.listType].overdue++;
+      else if (p.urgency === 'soon') groups[p.listType].soon++;
+    });
+
+    const types = ['Todos', ...Object.keys(groups).sort()];
+    const totalUrgent = _allProducts.filter(p => p.urgency === 'overdue' || p.urgency === 'soon').length;
+
+    wrap.innerHTML = types.map(t => {
+      const ico = LIST_TYPE_ICONS[t] || '📋';
+      const cnt = t === 'Todos' ? totalUrgent : (groups[t]?.overdue || 0) + (groups[t]?.soon || 0);
+      const total = t === 'Todos' ? _allProducts.length : (groups[t]?.total || 0);
+      return `<button class="stype-tab${t === _activeType ? ' active' : ''}"
+        data-type="${t}">
+        ${t === 'Todos' ? '📋' : ico} ${t}
+        <span class="stab-count">${cnt > 0 ? cnt : total}</span>
+      </button>`;
+    }).join('');
+
+    wrap.querySelectorAll('.stype-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _activeType = btn.dataset.type;
+        _renderTabs();
+        _renderSummary();
+        _renderList();
+      });
+    });
+  }
+
+  // ── render summary chips ──────────────────────────────────────
+  function _renderSummary() {
+    const el = document.getElementById('suggestSummary');
+    if (!el) return;
+    const filtered = _filtered();
+    const counts = { overdue: 0, soon: 0, ok: 0, unknown: 0 };
+    filtered.forEach(p => counts[p.urgency]++);
+    const chips = [
+      { key: 'overdue', label: `⚠️ ${counts.overdue} vencido${counts.overdue !== 1 ? 's' : ''}` },
+      { key: 'soon',    label: `🔔 ${counts.soon} acabando` },
+      { key: 'ok',      label: `✅ ${counts.ok} em dia` },
+      { key: 'unknown', label: `❓ ${counts.unknown} novo${counts.unknown !== 1 ? 's' : ''}` },
+    ].filter(c => counts[c.key] > 0);
+    el.innerHTML = chips.map(c =>
+      `<span class="ssum-chip ${c.key}">${c.label}</span>`
+    ).join('');
+
+    // Update "select all" button label: urgent if any, else "todos"
+    const selAllBtn = document.getElementById('suggestSelectAll');
+    if (selAllBtn) {
+      const hasUrgent = counts.overdue + counts.soon > 0;
+      selAllBtn.textContent = hasUrgent ? '☑ Todos urgentes' : '☑ Selecionar todos';
+    }
+  }
+
+  // ── filtered list based on active type ───────────────────────
+  function _filtered() {
+    if (_activeType === 'Todos') return _allProducts;
+    return _allProducts.filter(p => p.listType === _activeType);
+  }
+
+  // ── confidence indicator (based on occurrence count) ─────────
+  function _confidence(occurrences) {
+    if (occurrences >= 7) return { dots: '●●●', label: 'alta',  cls: 'conf-high' };
+    if (occurrences >= 4) return { dots: '●●○', label: 'média', cls: 'conf-mid'  };
+    if (occurrences >= 2) return { dots: '●○○', label: 'baixa', cls: 'conf-low'  };
+    return                        { dots: '○○○', label: 'novo',  cls: 'conf-none' };
+  }
+
+  // ── render product rows ───────────────────────────────────────
+  function _renderList() {
+    const el = document.getElementById('suggestList');
+    if (!el) return;
+    const items = _filtered();
+
+    if (!items.length) {
+      el.innerHTML = `<div class="suggest-nd">
+        <span class="suggest-nd-icon">🔍</span>
+        Nenhum produto encontrado para este tipo de lista.<br>
+        Salve mais listas para o app aprender seus ciclos.
+      </div>`;
+      return;
+    }
+
+    el.innerHTML = '';
+    items.forEach(p => {
+      const sel = _selected.has(p.norm);
+      const pctCapped = Math.min((p.pct || 0) * 100, 100);
+      const lastDateStr = p.lastDate
+        ? p.lastDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '—';
+      const cycleStr = p.avgDays ? `ciclo ~${p.avgDays}d` : 'dados insuficientes';
+      const daysStr  = p.avgDays
+        ? (p.urgency === 'overdue'
+            ? `${Math.max(0, p.daysSinceLast - p.avgDays)}d vencido`
+            : p.urgency === 'soon'
+              ? `${p.daysUntilNext}d para repor`
+              : `${p.daysUntilNext}d restantes`)
+        : `última: ${lastDateStr}`;
+
+      // Last price display
+      const priceStr = p.lastPrice > 0
+        ? `R$${p.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · `
+        : '';
+
+      // Confidence
+      const conf = _confidence(p.occurrences);
+      const qtyStr = `${p.lastQty} ${p.lastUnit || 'un'}`;
+
+      const row = document.createElement('div');
+      row.className = `sug-item urgency-${p.urgency}${sel ? ' selected' : ''}`;
+      row.dataset.norm = p.norm;
+      row.innerHTML = `
+        <div class="sug-check">${sel ? '✓' : ''}</div>
+        <div class="sug-info">
+          <div class="sug-name">${p.name}
+            <span class="sug-conf ${conf.cls}" title="Confiança ${conf.label} (${p.occurrences}×)">${conf.dots}</span>
+          </div>
+          <div class="sug-meta">${LIST_TYPE_ICONS[p.listType] || '📋'} ${p.listType} · ${p.category} · ${cycleStr} · ${daysStr}</div>
+          <div class="sug-detail">${priceStr}${qtyStr} · ${p.occurrences}× comprado</div>
+        </div>
+        <span class="sug-urgency-badge ${p.urgency}">${URGENCY_LABELS[p.urgency]}</span>
+        <div class="sug-progress">
+          <span class="sug-pct">${p.avgDays ? Math.round(p.pct * 100) + '%' : '?'}</span>
+          <div class="sug-bar-bg">
+            <div class="sug-bar-fill ${p.urgency}" style="width:${pctCapped}%"></div>
+          </div>
+        </div>`;
+
+      row.addEventListener('click', () => _toggleItem(p.norm, row));
+      el.appendChild(row);
+    });
+  }
+
+  function _toggleItem(norm, rowEl) {
+    if (_selected.has(norm)) {
+      _selected.delete(norm);
+      rowEl.classList.remove('selected');
+      rowEl.querySelector('.sug-check').textContent = '';
+    } else {
+      _selected.add(norm);
+      rowEl.classList.add('selected');
+      rowEl.querySelector('.sug-check').textContent = '✓';
+    }
+    _updateCreateBtn();
+  }
+
+  function _updateCreateBtn() {
+    const btn  = document.getElementById('suggestCreate');
+    const hint = document.getElementById('suggestCreateHint');
+    if (!btn) return;
+    const n = _selected.size;
+    if (n > 0) {
+      btn.textContent = `✚ Criar Lista (${n} item${n !== 1 ? 's' : ''})`;
+      btn.disabled = false;
+      if (hint) hint.style.display = 'none';
+    } else {
+      btn.textContent = '✚ Criar Lista';
+      btn.disabled = true;
+      if (hint) hint.style.display = 'block';
+    }
+  }
+
+  // ── public API ────────────────────────────────────────────────
+  function open(savedLists) {
+    _selected.clear();
+    _activeType = 'Todos';
+    _allProducts = Calculator.analyzeAllProducts(savedLists, { minOccurrences: 1 });
+    _renderTabs();
+    _renderSummary();
+    _renderList();
+    _updateCreateBtn();
+  }
+
+  function selectAllUrgent() {
+    const filtered = _filtered();
+    // Try urgent first; if none, select everything in the current tab
+    let toSelect = filtered.filter(p => p.urgency === 'overdue' || p.urgency === 'soon');
+    if (toSelect.length === 0) toSelect = filtered;
+    toSelect.forEach(p => _selected.add(p.norm));
+    _renderList();
+    _updateCreateBtn();
+  }
+
+  function clearAll() {
+    _selected.clear();
+    _renderList();
+    _updateCreateBtn();
+  }
+
+  function createList() {
+    if (!_selected.size) return null;
+    const chosen = _allProducts.filter(p => _selected.has(p.norm));
+
+    // Group by list type
+    const byType = {};
+    chosen.forEach(p => {
+      byType[p.listType] = byType[p.listType] || [];
+      byType[p.listType].push(p);
+    });
+
+    const types = Object.keys(byType);
+
+    // Build item list per type — prices left blank for user to fill at purchase time
+    const buildItems = (products) => products.map(p => ({
+      id:             Calculator.generateId(),
+      name:           p.name,
+      category:       p.category || 'Outros',
+      quantity:       p.lastQty  || 1,
+      unit:           p.lastUnit || 'un',
+      priceWholesale: 0,
+      priceRetail:    0,
+      completed:      false,
+    }));
+
+    // Single type → simple case
+    if (types.length === 1) {
+      return {
+        multi:    false,
+        listType: types[0],
+        items:    buildItems(byType[types[0]]),
+        byType,
+      };
+    }
+
+    // Multiple types → build one list per type, sorted by urgency desc
+    const listsByType = {};
+    types.forEach(t => {
+      listsByType[t] = buildItems(byType[t]);
+    });
+
+    // Dominant type = most items, breaking ties by highest urgency
+    const dominantType = types.sort((a, b) => {
+      const urgScore = p => ({ overdue: 3, soon: 2, ok: 1, unknown: 0 }[p.urgency] || 0);
+      const scoreA = byType[a].reduce((s, p) => s + urgScore(p), 0);
+      const scoreB = byType[b].reduce((s, p) => s + urgScore(p), 0);
+      return scoreB - scoreA || byType[b].length - byType[a].length;
+    })[0];
+
+    return {
+      multi:        true,
+      listType:     dominantType,
+      items:        buildItems(byType[dominantType]),
+      byType,
+      listsByType,
+    };
+  }
+
+  // ── multi-type dialog ─────────────────────────────────────────
+  // Shows a mini modal asking which list type to load when selection
+  // spans more than one type. Calls onChoice({items, listType}) or
+  // onChoice(null) on cancel.
+  function showMultiTypeDialog(result, onChoice) {
+    const types = Object.keys(result.byType).sort();
+    const modal = document.getElementById('multiTypeModal');
+    if (!modal) { onChoice(null); return; }
+
+    const list = document.getElementById('multiTypeList');
+    list.innerHTML = '';
+
+    types.forEach(type => {
+      const products = result.byType[type];
+      const items    = result.listsByType[type];
+      const urgentN  = products.filter(p => p.urgency === 'overdue' || p.urgency === 'soon').length;
+      const ico      = LIST_TYPE_ICONS[type] || '📋';
+
+      const btn = document.createElement('button');
+      btn.className = 'mtype-option';
+      btn.innerHTML = `
+        <span class="mtype-ico">${ico}</span>
+        <span class="mtype-info">
+          <span class="mtype-name">${type}</span>
+          <span class="mtype-count">${items.length} item${items.length !== 1 ? 's' : ''}${urgentN ? ` · <span class="mtype-urgent">${urgentN} urgente${urgentN !== 1 ? 's' : ''}</span>` : ''}</span>
+        </span>
+        <span class="mtype-arrow">→</span>`;
+      btn.addEventListener('click', () => {
+        UI.hideModal(modal);
+        onChoice({ items, listType: type });
+      });
+      list.appendChild(btn);
+    });
+
+    UI.showModal(modal);
+    document.getElementById('multiTypeCancel')?.addEventListener('click', () => {
+      UI.hideModal(modal);
+      onChoice(null);
+    }, { once: true });
+  }
+
+  return { open, selectAllUrgent, clearAll, createList, showMultiTypeDialog };
+})();
+
 // ── Payment constants ──────────────────────────────────────────
 const PAYMENT_METHODS = {
   dinheiro:         '💵 Dinheiro',
@@ -225,6 +548,7 @@ class ShoppingList {
     this.compareList2  = $('compareList2');
     this.compareExec   = $('compareExecute');
     this.compareClose  = $('compareClose');
+    this.suggestModal  = $('suggestModal');
   }
 
   // ── Events ─────────────────────────────────────────────────────
@@ -290,6 +614,13 @@ class ShoppingList {
 
     this.compareClose.addEventListener('click',   () => UI.hideModal(this.compareModal));
     this.compareExec.addEventListener('click',    () => this._executeComparison());
+    // Suggestion modal
+    document.getElementById('suggestButton')?.addEventListener('click', () => this._openSuggest());
+    document.getElementById('suggestClose')?.addEventListener('click',  () => UI.hideModal(this.suggestModal));
+    document.getElementById('suggestSelectAll')?.addEventListener('click', () => SuggestionManager.selectAllUrgent());
+    document.getElementById('suggestClearAll')?.addEventListener('click',  () => SuggestionManager.clearAll());
+    document.getElementById('suggestCreate')?.addEventListener('click',    () => this._createFromSuggestion());
+
     document.getElementById('priceHistoryClose')?.addEventListener('click',
       () => UI.hideModal(document.getElementById('priceHistoryModal')));
 
@@ -547,6 +878,51 @@ Formato: AAAA-MM-DD`,
     Storage.deleteNamedList(index);
     this._showHistory();
     UI.showToast(`Lista "${name}" excluída!`);
+  }
+
+  _openSuggest() {
+    SuggestionManager.open(Storage.getSavedLists());
+    UI.showModal(this.suggestModal);
+  }
+
+  _createFromSuggestion() {
+    const result = SuggestionManager.createList();
+    if (!result) return;
+
+    UI.hideModal(this.suggestModal);
+
+    if (!result.multi) {
+      // ── Single type: load directly ───────────────────────────
+      this._applySuggestedList(result.items, result.listType);
+      UI.showToast(`✅ ${result.items.length} itens · ${result.listType}`);
+    } else {
+      // ── Multi-type: ask the user what to do ──────────────────
+      SuggestionManager.showMultiTypeDialog(result, (chosen) => {
+        if (!chosen) return;
+        this._applySuggestedList(chosen.items, chosen.listType);
+        UI.showToast(`✅ ${chosen.items.length} itens · ${chosen.listType}`);
+      });
+    }
+  }
+
+  _applySuggestedList(items, listType) {
+    this.items           = items;
+    this.currentListType = listType;
+    this.currentListName = '';
+    this.currentListNameEl.textContent = 'Lista Sugerida';
+    this._updateCategories();
+    this._saveToStorage();
+    this.render();
+  }
+      this._updateCategories();
+      this._saveToStorage();
+      this.render();
+
+      const extra = savedNames.length
+        ? ` · ${savedNames.length} lista${savedNames.length > 1 ? 's' : ''} salva${savedNames.length > 1 ? 's' : ''}: ${savedNames.join(', ')}`
+        : '';
+      UI.showToast(`✅ ${result.items.length} itens · ${result.listType}${extra}`);
+    }
   }
 
   _showSaveDialog() {
