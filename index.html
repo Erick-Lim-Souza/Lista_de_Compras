@@ -21,8 +21,9 @@
 <div class="container">
 
   <header class="header">
-    <h1>🛒 Lista de Compras <span class="badge">v2.0</span></h1>
+    <h1>🛒 Lista de Compras <span class="badge">v3.0</span></h1>
     <div class="header-actions">
+      <button id="suggestButton" class="btn btn-secondary btn-sm suggest-btn" title="Sugestão automática baseada no ciclo de compras">💡 Sugestões</button>
       <button id="historyButton" class="btn btn-secondary btn-sm">📋 Histórico</button>
       <button onclick="location.href='dashboard.html'" class="btn btn-secondary btn-sm" title="Dashboard de gastos">📊</button>
       <button id="versionButton" class="btn btn-secondary btn-sm">ℹ️</button>
@@ -326,6 +327,50 @@
 </div>
 
 <!-- PWA INSTALL + AUTO-UPDATE -->
+
+<!-- ══ SUGGESTION MODAL ══════════════════════════════════════════ -->
+<div id="suggestModal" class="modal">
+  <div class="modal-content suggest-modal-content">
+
+    <div class="suggest-header">
+      <div>
+        <h3>💡 Sugestão de Lista</h3>
+        <p class="suggest-subtitle">Baseada no seu ciclo de compras</p>
+      </div>
+      <button id="suggestClose" class="modal-close-btn">✕</button>
+    </div>
+
+    <div class="suggest-type-tabs" id="suggestTypeTabs"></div>
+    <div class="suggest-summary" id="suggestSummary"></div>
+
+    <div class="suggest-list-wrap">
+      <div class="suggest-list" id="suggestList"></div>
+    </div>
+
+    <div class="suggest-actions">
+      <button id="suggestSelectAll" class="btn btn-secondary btn-sm">☑ Todos urgentes</button>
+      <button id="suggestClearAll"  class="btn btn-secondary btn-sm">☐ Limpar</button>
+      <div class="suggest-create-wrap">
+        <span id="suggestCreateHint" class="suggest-create-hint">← Toque em um item para selecionar</span>
+        <button id="suggestCreate" class="btn btn-primary">✚ Criar Lista</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MULTI-TYPE SELECTION MODAL -->
+<div id="multiTypeModal" class="modal">
+  <div class="modal-content multitype-modal-content">
+    <h3>🗂️ Criar lista por tipo</h3>
+    <p class="multitype-subtitle">Você selecionou itens de tipos diferentes.<br>Qual lista quer carregar agora?</p>
+    <div id="multiTypeList" class="multitype-list"></div>
+    <div class="modal-buttons">
+      <button id="multiTypeCancel" class="btn btn-secondary">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>
   let _deferredInstall = null;
 
