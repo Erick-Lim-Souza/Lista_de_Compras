@@ -25,6 +25,10 @@
   </div>
   <div class="hdr-r">
     <span class="demo-tag" id="demoTag" style="display:none">● DEMO</span>
+    <a href="ajuda.html" class="btn btn-guide" title="Como funcionam os gráficos?">
+      <span class="btn-guide-ico">❓</span>
+      <span class="btn-guide-txt">Guia dos Gráficos</span>
+    </a>
     <a href="index.html" class="btn">🛒 Voltar ao App</a>
     <button class="tbtn" id="themeBtn" aria-label="Alternar tema">☀️</button>
   </div>
@@ -51,6 +55,13 @@
       <label>Até</label>
       <input type="date" id="dto">
       <button class="apbtn" id="applyBtn">Aplicar</button>
+    </div>
+    <div class="vsep"></div>
+    <div class="type-filter-wrap">
+      <span class="clbl">Tipo</span>
+      <select id="typeFilter" class="type-filter-sel">
+        <option value="Todos">Todos</option>
+      </select>
     </div>
   </div>
 
@@ -383,22 +394,28 @@ function guesscat(name,t){
 }
 
 /* ── FILTER ─────────────────────────────────────────────────── */
-let activePer='3m',cfrom=null,cto=null,useDemo=false;
+let activePer='3m',cfrom=null,cto=null,useDemo=false,activeType='Todos';
 let heatYear=new Date().getFullYear();
 
 function filterEv(ev){
   const now=new Date();now.setHours(23,59,59,999);
-  if(cfrom&&cto)return ev.filter(e=>e.date>=cfrom&&e.date<=cto);
-  let from;
-  switch(activePer){
-    case'7d':from=new Date(+now-7*864e5);break;
-    case'30d':from=new Date(+now-30*864e5);break;
-    case'3m':from=new Date(now.getFullYear(),now.getMonth()-2,1);break;
-    case'6m':from=new Date(now.getFullYear(),now.getMonth()-5,1);break;
-    case'12m':from=new Date(now.getFullYear()-1,now.getMonth(),1);break;
-    default:from=new Date(0);
+  let filtered;
+  if(cfrom&&cto){
+    filtered=ev.filter(e=>e.date>=cfrom&&e.date<=cto);
+  } else {
+    let from;
+    switch(activePer){
+      case'7d':from=new Date(+now-7*864e5);break;
+      case'30d':from=new Date(+now-30*864e5);break;
+      case'3m':from=new Date(now.getFullYear(),now.getMonth()-2,1);break;
+      case'6m':from=new Date(now.getFullYear(),now.getMonth()-5,1);break;
+      case'12m':from=new Date(now.getFullYear()-1,now.getMonth(),1);break;
+      default:from=new Date(0);
+    }
+    filtered=ev.filter(e=>e.date>=from&&e.date<=now);
   }
-  return ev.filter(e=>e.date>=from&&e.date<=now);
+  if(activeType&&activeType!=='Todos') filtered=filtered.filter(e=>e.listType===activeType);
+  return filtered;
 }
 
 /* ── CHART INSTANCES ────────────────────────────────────────── */
@@ -428,9 +445,12 @@ function countUp(el,end,isMoney=true,ms=650){
 ═══════════════════════════════════════════════════════════ */
 function rebuild(){
   const all=buildEvents(useDemo);
+  populateTypeFilter(all);
+  // allTyped: type-filtered but NOT date-filtered — for historical charts (inflation, forecast, heatmap…)
+  const allTyped=(activeType&&activeType!=='Todos')?all.filter(e=>e.listType===activeType):all;
   const ev=filterEv(all);
   const d=td();
-  updateKPIs(ev,all);
+  updateKPIs(ev,allTyped);
   buildBar(ev,d);
   buildLine(ev,d);
   buildDonut(ev,d);
@@ -438,10 +458,10 @@ function rebuild(){
   buildPaymentAvg(ev,d);
   buildMarketDonut(ev,d);
   buildMarketEconomy(ev);
-  buildInflation(all,d);
-  buildForecast(all,d);
-  buildPriceEvolution(all,d);
-  buildHeat(all);
+  buildInflation(allTyped,d);
+  buildForecast(allTyped,d);
+  buildPriceEvolution(allTyped,d);
+  buildHeat(allTyped);
   buildTimeline(ev);
   buildTop(ev);
 }
@@ -1136,6 +1156,30 @@ document.getElementById('applyBtn').addEventListener('click',()=>{
   rebuild();
 });
 
+/* ── TYPE FILTER ─────────────────────────────────────────────── */
+document.getElementById('typeFilter').addEventListener('change', e => {
+  activeType = e.target.value;
+  rebuild();
+});
+
+function populateTypeFilter(allEvents) {
+  const sel = document.getElementById('typeFilter');
+  if (!sel) return;
+  // Collect unique types from ALL events (not filtered by date or type)
+  const types = [...new Set(
+    allEvents.map(e => e.listType).filter(t => t && t !== '—')
+  )].sort();
+  const icons = {'Supermercado':'🛒','Feira Livre':'🥕','Açougue':'🍖',
+    'Farmácia':'💊','Roupas':'👕','Eletrônicos':'📱','Casa e Jardim':'🏠'};
+  sel.innerHTML = '<option value="Todos">📋 Todos</option>' +
+    types.map(t => `<option value="${t}">${icons[t]||'📋'} ${t}</option>`).join('');
+  // Sync DOM to JS state (activeType is the source of truth)
+  const validValues = ['Todos', ...types];
+  if (!validValues.includes(activeType)) activeType = 'Todos';
+  sel.value = activeType;
+  sel.classList.toggle('filtered', activeType !== 'Todos');
+}
+
 /* ── YEAR NAV ────────────────────────────────────────────────── */
 document.getElementById('heatPrev').addEventListener('click',()=>{
   heatYear--;
@@ -1182,21 +1226,21 @@ document.getElementById('heatNext').addEventListener('click',()=>{
   rebuild();
 })();
 </script>
-  <footer class="footer">
-  <div class="footer-container">
-    <div class="footer-main">
-      <div class="footer-info">
-        <span class="footer-brand">Lista de Compras · Dashboard</span>
-        <p class="footer-copy">&copy; 2025 – 2026. Todos os direitos reservados.</p>
+  <footer class="footer" style="margin-top:48px">
+    <div class="footer-container">
+      <div class="footer-main">
+        <div class="footer-info">
+          <span class="footer-brand">Lista de Compras · Dashboard</span>
+          <p class="footer-copy">&copy; 2025 – 2026. Todos os direitos reservados.</p>
+        </div>
+        <div class="footer-credits">
+          <p>por <a href="https://ericklima-dev.netlify.app/" target="_blank" class="footer-link">Erick de Lima Souza</a></p>
+          <span class="footer-project">Green Monster Project</span>
+        </div>
       </div>
-      <div class="footer-credits">
-        <p>Desenvolvido por <a href="https://ericklima-dev.netlify.app/" target="_blank" class="footer-link">Erick de Lima Souza</a></p>
-        <span class="footer-project">Green Monster Project</span>
-      </div>
+      <div class="footer-accent-bar"></div>
     </div>
-    <div class="footer-accent-bar"></div>
-  </div>
-</footer>
+  </footer>
 
 </body>
 </html>
