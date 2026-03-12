@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guia dos Gráficos · Lista Inteligente</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ── PAGE SHELL ─────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body {
+  font-family: var(--mono);
+  background: var(--bg);
+  color: var(--txt);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* scan-line texture overlay */
+body::before {
+  content:'';
+  position:fixed;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,.04) 3px,
+    rgba(0,0,0,.04) 4px
+  );
+  z-index:0;
+}
+
+/* ── TOP NAV ────────────────────────────────────────────────────── */
+.g-nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--ln2);
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 28px;
+  backdrop-filter: blur(12px);
+}
+.g-nav-back {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .72rem; color: var(--txt-2);
+  text-decoration: none;
+  padding: 5px 10px;
+  border: 1px solid var(--ln2);
+  border-radius: var(--rs);
+  transition: border-color var(--t), color var(--t);
+}
+.g-nav-back:hover { border-color: var(--accent); color: var(--accent); }
+.g-nav-title {
+  font-size: .76rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--txt);
+}
+.g-nav-badge {
+  margin-left: auto;
+  font-size: .58rem; padding: 3px 9px;
+  background: rgba(0,196,140,.12);
+  color: var(--accent);
+  border: 1px solid rgba(0,196,140,.25);
+  border-radius: 20px;
+  letter-spacing: .08em;
+}
+
+/* ── HERO ───────────────────────────────────────────────────────── */
+.g-hero {
+  padding: 56px 28px 40px;
+  max-width: 860px; margin: 0 auto;
+  position: relative; z-index: 1;
+}
+.g-hero-eyebrow {
+  font-size: .6rem; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.g-hero-eyebrow::before {
+  content: ''; display: block;
+  width: 28px; height: 1px; background: var(--accent);
+}
+.g-hero h1 {
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 800; line-height: 1.15;
+  letter-spacing: -.02em;
+  color: var(--txt);
+  margin-bottom: 20px;
+}
+.g-hero h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+.g-hero-lead {
+  font-size: .82rem; line-height: 1.8;
+  color: var(--txt-2); max-width: 600px;
+  font-family: var(--mono);
+}
+.g-hero-stats {
+  display: flex; gap: 24px; margin-top: 32px; flex-wrap: wrap;
+}
+.g-hstat {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.g-hstat-val {
+  font-size: 1.4rem; font-weight: 800; color: var(--txt);
+  line-height: 1;
+}
+.g-hstat-lbl {
+  font-size: .58rem; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--txt-3);
+}
+
+/* ── TOC ────────────────────────────────────────────────────────── */
+.g-toc {
+  max-width: 860px; margin: 0 auto 40px;
+  padding: 0 28px;
+  position: relative; z-index: 1;
+}
+.g-toc-inner {
+  border: 1px solid var(--ln2);
+  border-radius: var(--rc);
+  padding: 20px 24px;
+  background: var(--bg-card);
+}
+.g-toc-title {
+  font-size: .62rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--txt-3);
+  margin-bottom: 14px;
+}
+.g-toc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px;
+}
+.g-toc-link {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .68rem; color: var(--txt-2);
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: var(--rs);
+  transition: background var(--t), color var(--t);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.g-toc-link:hover { background: rgba(0,196,140,.08); color: var(--accent); }
+.g-toc-link .toc-ico { font-size: .9rem; flex-shrink: 0; }
+.g-toc-link .toc-num {
+  font-size: .52rem; color: var(--txt-3);
+  background: var(--bgr); border-radius: 4px;
+  padding: 1px 5px; flex-shrink: 0;
+}
+
+/* ── SECTION DIVIDER ────────────────────────────────────────────── */
+.g-section-label {
+  max-width: 860px; margin: 48px auto 20px;
+  padding: 0 28px;
+  display: flex; align-items: center; gap: 14px;
+  font-size: .58rem; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--txt-3);
+  position: relative; z-index: 1;
+}
+.g-section-label::after {
+  content: ''; flex: 1;
+  height: 1px; background: var(--ln2);
+}
+
+/* ── CHART CARD ─────────────────────────────────────────────────── */
+.g-card {
+  max-width: 860px; margin: 0 auto 20px;
+  padding: 0 28px;
+  position: relative; z-index: 1;
+}
+.g-card-inner {
+  background: var(--bg-card);
+  border: 1px solid var(--ln2);
+  border-radius: var(--rc);
+  overflow: hidden;
+  transition: border-color var(--t);
+}
+.g-card-inner:hover { border-color: rgba(0,196,140,.3); }
+
+.g-card-head {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--ln2);
+}
+.g-card-ico-wrap {
+  width: 46px; height: 46px; flex-shrink: 0;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  background: var(--bgr);
+  border: 1px solid var(--ln2);
+}
+.g-card-meta { flex: 1; min-width: 0; }
+.g-card-num {
+  font-size: .54rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--txt-3);
+  margin-bottom: 4px;
+}
+.g-card-name {
+  font-size: 1rem; font-weight: 700;
+  color: var(--txt); line-height: 1.2;
+}
+.g-card-tagline {
+  font-size: .68rem; color: var(--txt-2);
+  margin-top: 4px; line-height: 1.5;
+}
+.g-card-scope {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;
+}
+.g-tag {
+  font-size: .56rem; padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: .06em;
+}
+.g-tag-period { background: rgba(96,165,250,.12); color: #60A5FA; border: 1px solid rgba(96,165,250,.25); }
+.g-tag-type   { background: rgba(251,191,36,.1);  color: #FBBF24; border: 1px solid rgba(251,191,36,.22); }
+.g-tag-all    { background: rgba(0,196,140,.1);   color: var(--accent); border: 1px solid rgba(0,196,140,.22); }
+
+.g-card-body { padding: 22px 24px; display: flex; flex-direction: column; gap: 20px; }
+
+/* ── BLOCK: WHAT ────────────────────────────────────────────────── */
+.g-block { display: flex; flex-direction: column; gap: 8px; }
+.g-block-lbl {
+  font-size: .56rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--txt-3);
+  display: flex; align-items: center; gap: 8px;
+}
+.g-block-lbl::after {
+  content: ''; flex: 1; height: 1px;
+  background: var(--ln2);
+}
+.g-block-text {
+  font-size: .74rem; line-height: 1.8;
+  color: var(--txt-2);
+}
+.g-block-text strong { color: var(--txt); font-weight: 600; }
+
+/* ── FORMULA BOX ────────────────────────────────────────────────── */
+.g-formula {
+  background: var(--bgr);
+  border: 1px solid var(--ln2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--rs) var(--rs) 0;
+  padding: 14px 18px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.g-formula-title {
+  font-size: .56rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 4px;
+}
+.g-formula-line {
+  font-size: .72rem; color: var(--txt);
+  font-family: var(--mono);
+  display: flex; align-items: baseline; gap: 8px;
+  flex-wrap: wrap;
+}
+.g-formula-line .op   { color: var(--txt-3); }
+.g-formula-line .var  { color: #60A5FA; }
+.g-formula-line .val  { color: var(--accent); }
+.g-formula-line .note { font-size: .62rem; color: var(--txt-3); font-style: italic; }
+
+/* ── INGREDIENTS LIST ───────────────────────────────────────────── */
+.g-ingr { display: flex; flex-direction: column; gap: 7px; }
+.g-ingr-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: .72rem; color: var(--txt-2);
+  padding: 8px 12px;
+  background: var(--bgr);
+  border: 1px solid var(--ln2);
+  border-radius: var(--rs);
+}
+.g-ingr-ico { font-size: .9rem; flex-shrink: 0; margin-top: 1px; }
+.g-ingr-label { font-weight: 600; color: var(--txt); margin-right: 4px; }
+.g-ingr-req {
+  margin-left: auto; flex-shrink: 0;
+  font-size: .52rem; padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: .08em;
+}
+.req-must { background: rgba(255,99,132,.12); color: #FF6384; border: 1px solid rgba(255,99,132,.25); }
+.req-nice { background: rgba(251,191,36,.10); color: #FBBF24; border: 1px solid rgba(251,191,36,.22); }
+.req-auto { background: rgba(148,163,184,.10); color: #94A3B8; border: 1px solid rgba(148,163,184,.2); }
+
+/* ── STEPS ──────────────────────────────────────────────────────── */
+.g-steps { display: flex; flex-direction: column; gap: 0; }
+.g-step {
+  display: flex; gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--ln2);
+}
+.g-step:last-child { border-bottom: none; }
+.g-step-num {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(0,196,140,.15);
+  border: 1px solid rgba(0,196,140,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .6rem; font-weight: 700; color: var(--accent);
+  margin-top: 2px;
+}
+.g-step-text {
+  font-size: .73rem; line-height: 1.7; color: var(--txt-2);
+}
+.g-step-text strong { color: var(--txt); }
+.g-step-text code {
+  font-family: var(--mono);
+  font-size: .68rem;
+  background: rgba(0,196,140,.1);
+  color: var(--accent);
+  padding: 1px 6px; border-radius: 4px;
+}
+
+/* ── TIP BOX ────────────────────────────────────────────────────── */
+.g-tip {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 16px;
+  background: rgba(251,191,36,.06);
+  border: 1px solid rgba(251,191,36,.2);
+  border-radius: var(--rs);
+}
+.g-tip-ico { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+.g-tip-text { font-size: .70rem; line-height: 1.7; color: var(--txt-2); }
+.g-tip-text strong { color: #FBBF24; }
+
+/* ── EXAMPLE ROW (mini visual) ──────────────────────────────────── */
+.g-example {
+  background: var(--bgr);
+  border: 1px solid var(--ln2);
+  border-radius: var(--rs);
+  padding: 14px 16px;
+}
+.g-example-title {
+  font-size: .56rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--txt-3);
+  margin-bottom: 12px;
+}
+.g-ex-bars { display: flex; gap: 4px; align-items: flex-end; height: 48px; }
+.g-ex-bar {
+  flex: 1; border-radius: 3px 3px 0 0;
+  background: rgba(0,196,140,.35);
+  transition: background var(--t);
+  position: relative;
+}
+.g-ex-bar.peak { background: rgba(0,196,140,.92); }
+.g-ex-bar::after {
+  content: attr(data-v);
+  position: absolute; bottom: -18px; left: 50%;
+  transform: translateX(-50%);
+  font-size: .52rem; color: var(--txt-3);
+  white-space: nowrap;
+}
+.g-ex-bar-wrap { overflow: visible; padding-bottom: 22px; }
+
+/* ── CONFIDENCE CHIP ────────────────────────────────────────────── */
+.g-conf-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.g-conf-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--rs);
+  border: 1px solid var(--ln2);
+  font-size: .66rem;
+}
+.conf-high { background: rgba(0,196,140,.08); color: var(--accent); border-color: rgba(0,196,140,.25); }
+.conf-med  { background: rgba(251,191,36,.08); color: #FBBF24;    border-color: rgba(251,191,36,.25); }
+.conf-low  { background: rgba(255,99,132,.08); color: #FF6384;    border-color: rgba(255,99,132,.25); }
+
+/* ── BOTTOM CTA ─────────────────────────────────────────────────── */
+.g-cta {
+  max-width: 860px; margin: 48px auto 0;
+  padding: 0 28px 64px;
+  position: relative; z-index: 1;
+}
+.g-cta-inner {
+  background: var(--bg-card);
+  border: 1px solid var(--ln2);
+  border-radius: var(--rc);
+  padding: 36px 32px;
+  display: flex; align-items: center; gap: 24px;
+  flex-wrap: wrap;
+}
+.g-cta-text h3 { font-size: 1rem; font-weight: 700; color: var(--txt); margin-bottom: 6px; }
+.g-cta-text p  { font-size: .72rem; color: var(--txt-2); line-height: 1.6; }
+.g-cta-btn {
+  margin-left: auto;
+  padding: 10px 22px;
+  background: var(--accent);
+  color: #000; font-family: var(--mono); font-size: .72rem; font-weight: 700;
+  border: none; border-radius: var(--rs); cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity var(--t);
+}
+.g-cta-btn:hover { opacity: .85; }
+
+/* ── SCROLLBAR ──────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ln2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── RESPONSIVE ─────────────────────────────────────────────────── */
+@media(max-width:600px) {
+  .g-nav { padding: 10px 14px; }
+  .g-hero, .g-toc, .g-card, .g-section-label, .g-cta { padding-left: 14px; padding-right: 14px; }
+  .g-card-head { padding: 16px; }
+  .g-card-body { padding: 16px; }
+  .g-toc-grid  { grid-template-columns: 1fr 1fr; }
+  .g-hero h1   { font-size: 1.6rem; }
+  .g-cta-btn   { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="g-nav">
+  <a class="g-nav-back" href="dashboard.html">← Dashboard</a>
+  <span class="g-nav-title">Guia de Gráficos</span>
+  <span class="g-nav-badge">13 gráficos</span>
+</nav>
+
+<!-- HERO -->
+<header class="g-hero">
+  <div class="g-hero-eyebrow">Documentação interna · v3.0</div>
+  <h1>Como cada gráfico<br><em>chega no resultado</em></h1>
+  <p class="g-hero-lead">
+    Entenda de onde vêm os números, qual dado alimenta cada visualização,
+    como as fórmulas funcionam e o que você precisa registrar para que
+    o dashboard faça sentido no seu dia a dia.
+  </p>
+  <div class="g-hero-stats">
+    <div class="g-hstat"><span class="g-hstat-val">13</span><span class="g-hstat-lbl">Gráficos</span></div>
+    <div class="g-hstat"><span class="g-hstat-val">4</span><span class="g-hstat-lbl">Seções</span></div>
+    <div class="g-hstat"><span class="g-hstat-val">2</span><span class="g-hstat-lbl">Algoritmos preditivos</span></div>
+    <div class="g-hstat"><span class="g-hstat-val">1</span><span class="g-hstat-lbl">Fonte de dados</span></div>
+  </div>
+</header>
+
+<!-- TOC -->
+<section class="g-toc">
+  <div class="g-toc-inner">
+    <div class="g-toc-title">Índice rápido</div>
+    <div class="g-toc-grid">
+      <a class="g-toc-link" href="#s01"><span class="toc-ico">📊</span><span class="toc-num">01</span> Gasto Mensal</a>
+      <a class="g-toc-link" href="#s02"><span class="toc-ico">📈</span><span class="toc-num">02</span> Evolução de Gastos</a>
+      <a class="g-toc-link" href="#s03"><span class="toc-ico">🏷️</span><span class="toc-num">03</span> Gastos por Categoria</a>
+      <a class="g-toc-link" href="#s04"><span class="toc-ico">🌡️</span><span class="toc-num">04</span> Mapa de Calor</a>
+      <a class="g-toc-link" href="#s05"><span class="toc-ico">💳</span><span class="toc-num">05</span> Formas de Pagamento</a>
+      <a class="g-toc-link" href="#s06"><span class="toc-ico">📊</span><span class="toc-num">06</span> Ticket Médio</a>
+      <a class="g-toc-link" href="#s07"><span class="toc-ico">🏪</span><span class="toc-num">07</span> Gastos por Mercado</a>
+      <a class="g-toc-link" href="#s08"><span class="toc-ico">🥇</span><span class="toc-num">08</span> Economia por Mercado</a>
+      <a class="g-toc-link" href="#s09"><span class="toc-ico">📉</span><span class="toc-num">09</span> Tendência de Inflação</a>
+      <a class="g-toc-link" href="#s10"><span class="toc-ico">🔮</span><span class="toc-num">10</span> Previsão do Próximo Mês</a>
+      <a class="g-toc-link" href="#s11"><span class="toc-ico">💹</span><span class="toc-num">11</span> Evolução de Preços</a>
+      <a class="g-toc-link" href="#s12"><span class="toc-ico">📦</span><span class="toc-num">12</span> Top Produtos</a>
+      <a class="g-toc-link" href="#s13"><span class="toc-ico">🕒</span><span class="toc-num">13</span> Linha do Tempo</a>
+    </div>
+  </div>
+</section>
+
+<!-- ════ SEÇÃO 1 · GASTOS ══════════════════════════════════════════ -->
+<div class="g-section-label">💰 Gastos &amp; Evolução</div>
+
+<!-- 01 GASTO MENSAL -->
+<div class="g-card" id="s01">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">📊</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 01</div>
+        <div class="g-card-name">Gasto Mensal</div>
+        <div class="g-card-tagline">Barras verticais agrupadas por mês · barra mais brilhante = mês de pico</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          O total gasto em compras a cada mês. Cada barra representa <strong>a soma de todas as listas</strong>
+          salvas naquele mês. A barra mais verde e opaca é automaticamente o mês com o maior gasto.
+          O tooltip mostra também a variação percentual em relação ao mês anterior — útil para notar tendências.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">O que precisa</div>
+        <div class="g-ingr">
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">🗓️</span>
+            <span><span class="g-ingr-label">Data de compra</span> — definida no campo "Data de Compra" ao salvar</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">💰</span>
+            <span><span class="g-ingr-label">Total da lista</span> — soma automática dos preços dos itens</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-steps">
+          <div class="g-step"><div class="g-step-num">1</div><div class="g-step-text">Pega todas as listas no <strong>período selecionado</strong> (filtro de datas ou predefinido).</div></div>
+          <div class="g-step"><div class="g-step-num">2</div><div class="g-step-text">Agrupa por <code>AAAA-MM</code> (chave ano-mês) e soma os totais: <code>byMes[chave] += lista.total</code>.</div></div>
+          <div class="g-step"><div class="g-step-num">3</div><div class="g-step-text">Ordena as chaves cronologicamente e renderiza uma barra para cada mês.</div></div>
+          <div class="g-step"><div class="g-step-num">4</div><div class="g-step-text">A variação <code>Δ%</code> no tooltip é <code>(mês atual − mês anterior) / mês anterior × 100</code>.</div></div>
+        </div>
+      </div>
+      <div class="g-tip">
+        <span class="g-tip-ico">💡</span>
+        <span class="g-tip-text"><strong>Dica:</strong> Use sempre o campo "Data de Compra" ao salvar. Se não preencher, o sistema usa a data em que a lista foi criada, que pode não refletir quando você foi ao mercado de fato.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 02 EVOLUÇÃO DE GASTOS -->
+<div class="g-card" id="s02">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">📈</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 02</div>
+        <div class="g-card-name">Evolução de Gastos</div>
+        <div class="g-card-tagline">Linha acumulada (azul) + barras por lista (verde) · eixos duplos</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          <strong>Duas informações simultâneas:</strong> as barras verdes mostram o valor de cada lista individualmente;
+          a linha azul mostra o <strong>acumulado total</strong> crescendo ao longo do tempo.
+          Eixo Y esquerdo = acumulado; eixo Y direito = valor por lista.
+          Ótimo para ver se os gastos individuais estão crescendo ou se o acumulado acelera.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-steps">
+          <div class="g-step"><div class="g-step-num">1</div><div class="g-step-text">Ordena todas as listas do período <strong>cronologicamente</strong> pela data de compra.</div></div>
+          <div class="g-step"><div class="g-step-num">2</div><div class="g-step-text">Para cada lista, adiciona ao acumulado: <code>acumulado += lista.total</code> — gera a linha azul.</div></div>
+          <div class="g-step"><div class="g-step-num">3</div><div class="g-step-text">Os valores individuais de cada lista viram as barras verdes no eixo Y2.</div></div>
+        </div>
+      </div>
+      <div class="g-tip">
+        <span class="g-tip-ico">💡</span>
+        <span class="g-tip-text"><strong>Interpretação:</strong> Se a linha azul cresce em degraus cada vez maiores, suas compras individuais estão ficando mais caras. Degraus constantes significam gastos estáveis.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 03 CATEGORIAS -->
+<div class="g-card" id="s03">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">🏷️</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 03</div>
+        <div class="g-card-name">Gastos por Categoria</div>
+        <div class="g-card-tagline">Donut · cada fatia = uma categoria de produto</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          A distribuição do dinheiro entre as categorias dos <strong>itens</strong> (ex.: Hortifruti, Carnes, Laticínios…).
+          Diferente dos outros gráficos que operam no nível da lista, este <strong>desce ao nível do item</strong>,
+          calculando o custo de cada produto e agrupando por categoria.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">O que precisa</div>
+        <div class="g-ingr">
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">🏷️</span>
+            <span><span class="g-ingr-label">Categoria do item</span> — campo "Categoria" de cada produto</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">💲</span>
+            <span><span class="g-ingr-label">Preço do item</span> — preço atacado ou varejo do produto</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-formula">
+          <div class="g-formula-title">Custo do item</div>
+          <div class="g-formula-line">
+            <span class="var">custo</span>
+            <span class="op">=</span>
+            <span class="var">preço_atacado</span>
+            <span class="op">×</span>
+            <span class="var">quantidade</span>
+            <span class="note">(se unidade em g/ml, divide por 1000 primeiro)</span>
+          </div>
+        </div>
+        <div class="g-block-text" style="margin-top:10px">
+          Se não há preço de atacado, usa o de varejo. O custo de cada item é somado por categoria.
+          Itens com preço zero são ignorados.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SEÇÃO 2 · COMPORTAMENTO ══════════════════════════════════ -->
+<div class="g-section-label">🗺️ Comportamento &amp; Hábitos</div>
+
+<!-- 04 HEATMAP -->
+<div class="g-card" id="s04">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">🌡️</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 04</div>
+        <div class="g-card-name">Mapa de Calor Mensal</div>
+        <div class="g-card-tagline">12 células mensais · intensidade verde = proporção do gasto máximo</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-all">Todo o histórico</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          Um calendário anual com 12 células — uma por mês. A intensidade da cor verde indica
+          <strong>quanto você gastou naquele mês em relação ao seu mês mais caro do ano.</strong>
+          Verde muito opaco = mês de pico. Verde quase transparente = mês leve. Cinza = sem dados.
+          Use as setas <strong>‹ ›</strong> para navegar entre anos.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Detalhe importante</div>
+        <div class="g-block-text">
+          Ao contrário dos outros gráficos, o heatmap <strong>só conta listas com data de compra definida manualmente.</strong>
+          Listas com data automática (geradas pelo sistema) aparecem com aviso "(auto)" na linha do tempo
+          e são excluídas do heatmap para não distorcer o padrão.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-formula">
+          <div class="g-formula-title">Intensidade da cor</div>
+          <div class="g-formula-line">
+            <span class="var">opacidade</span>
+            <span class="op">=</span>
+            <span class="val">0.12</span>
+            <span class="op">+</span>
+            <span class="op">(</span><span class="var">gasto_mes</span> <span class="op">/</span> <span class="var">gasto_max_ano</span><span class="op">)</span>
+            <span class="op">×</span>
+            <span class="val">0.80</span>
+          </div>
+        </div>
+      </div>
+      <div class="g-tip">
+        <span class="g-tip-ico">💡</span>
+        <span class="g-tip-text"><strong>Dica:</strong> O heatmap usa <em>todo o histórico</em> (não respeita o período do filtro superior), mas respeita o filtro de tipo. Isso garante que você veja o padrão anual completo sem cortes.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 05 PAGAMENTOS DONUT -->
+<div class="g-card" id="s05">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">💳</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 05</div>
+        <div class="g-card-name">Formas de Pagamento</div>
+        <div class="g-card-tagline">Donut · quanto do total foi pago em cada modalidade</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          Quanto do dinheiro total foi pago em cada modalidade: PIX, Dinheiro, Cartão de Crédito,
+          Cartão de Débito, Vale Alimentação, Vale Refeição. Suporta <strong>pagamento dividido</strong> —
+          uma lista pode ter múltiplas formas de pagamento e cada parcela vai para sua fatia correta.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">O que precisa</div>
+        <div class="g-ingr">
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">💳</span>
+            <span><span class="g-ingr-label">Forma de pagamento</span> — campo obrigatório ao salvar a lista</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">💵</span>
+            <span><span class="g-ingr-label">Valor de cada pagamento</span> — em listas divididas, o valor de cada método</span>
+            <span class="g-ingr-req req-nice">recomendado</span>
+          </div>
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-steps">
+          <div class="g-step"><div class="g-step-num">1</div><div class="g-step-text">Percorre todos os pagamentos: <code>lista.payments[]</code> — cada item tem <code>{method, amount}</code>.</div></div>
+          <div class="g-step"><div class="g-step-num">2</div><div class="g-step-text">Agrupa por método e soma os valores: <code>byMetodo[method] += amount</code>.</div></div>
+          <div class="g-step"><div class="g-step-num">3</div><div class="g-step-text">Ordena do maior para o menor e monta o donut. O percentual no tooltip = <code>valor / total_geral × 100</code>.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 06 TICKET MÉDIO -->
+<div class="g-card" id="s06">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">📊</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 06</div>
+        <div class="g-card-name">Ticket Médio por Pagamento</div>
+        <div class="g-card-tagline">Barras horizontais · quanto você gasta em média quando usa cada método</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          Responde a pergunta: <strong>"quando pago com cartão de crédito, quanto costumo gastar?"</strong>
+          Permite comparar se você tende a gastar mais quando usa crédito versus débito ou PIX.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-formula">
+          <div class="g-formula-title">Ticket médio por método</div>
+          <div class="g-formula-line">
+            <span class="var">ticket_médio</span>
+            <span class="op">=</span>
+            <span class="var">soma_paga_nesse_método</span>
+            <span class="op">÷</span>
+            <span class="var">nº_de_listas_que_usaram</span>
+          </div>
+        </div>
+        <div class="g-block-text" style="margin-top:10px">
+          Ordenado do maior ticket para o menor. O tooltip mostra também quantas listas usaram aquele método.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SEÇÃO 3 · MERCADO ════════════════════════════════════════ -->
+<div class="g-section-label">🏪 Mercados &amp; Preços</div>
+
+<!-- 07 MERCADO DONUT -->
+<div class="g-card" id="s07">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">🏪</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 07</div>
+        <div class="g-card-name">Gastos por Mercado</div>
+        <div class="g-card-tagline">Donut · quanto do total foi gasto em cada estabelecimento</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          Proporção do gasto total distribuído por estabelecimento (Assaí, Atacadão, Carrefour, etc.).
+          Útil para ver se você concentra demais as compras num só lugar ou distribui bem.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">O que precisa</div>
+        <div class="g-ingr">
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">🏪</span>
+            <span><span class="g-ingr-label">Campo Mercado</span> — preenchido ao salvar a lista</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 08 ECONOMIA POR MERCADO -->
+<div class="g-card" id="s08">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">🥇</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 08</div>
+        <div class="g-card-name">Economia por Mercado</div>
+        <div class="g-card-tagline">Ranking com barras de progresso · mostra onde você economiza mais</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          O ranking de mercados pelo valor de <strong>economia acumulada</strong> —
+          quanto você "salvou" ao comprar no atacado em vez do varejo.
+          Medalhas 🥇🥈🥉 para os três primeiros. A barra de progresso é relativa ao mercado com maior economia.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula a economia</div>
+        <div class="g-formula">
+          <div class="g-formula-title">Economia por item</div>
+          <div class="g-formula-line">
+            <span class="var">economia</span>
+            <span class="op">=</span>
+            <span class="op">(</span><span class="var">preço_varejo</span> <span class="op">−</span> <span class="var">preço_atacado</span><span class="op">)</span>
+            <span class="op">×</span>
+            <span class="var">quantidade_efetiva</span>
+          </div>
+          <div class="g-formula-line" style="margin-top:6px">
+            <span class="note">quantidade_efetiva = quantidade (g e ml divididos por 1000 para converter em kg/L)</span>
+          </div>
+        </div>
+        <div class="g-block-text" style="margin-top:10px">
+          Apenas itens com <strong>ambos os preços preenchidos</strong> (atacado e varejo) entram no cálculo.
+          Se nenhum item tiver os dois preços, o gráfico cai para o modo fallback e exibe
+          o ranking por total gasto (quem mais comprou, não quem economizou mais).
+        </div>
+      </div>
+      <div class="g-tip">
+        <span class="g-tip-ico">💡</span>
+        <span class="g-tip-text"><strong>Para ativar este gráfico:</strong> ao adicionar um item, preencha os dois campos de preço: "Preço Atacado" (o que você pagou de fato) e "Preço Varejo" (o preço que custaria num mercado comum). A diferença é a sua economia.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 11 EVOLUÇÃO DE PREÇOS -->
+<div class="g-card" id="s11">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">💹</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 11</div>
+        <div class="g-card-name">Evolução de Preços dos Produtos</div>
+        <div class="g-card-tagline">Barras horizontais · top 8 produtos com maior variação de preço</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-all">Todo o histórico</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          Os produtos cujo preço <strong>mais subiu ou desceu</strong> ao longo de todo o histórico.
+          Cada linha mostra: nome do produto, preço na primeira compra → preço na última,
+          e a variação percentual (verde = barateou, vermelho = encareceu).
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">O que precisa</div>
+        <div class="g-ingr">
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">💲</span>
+            <span><span class="g-ingr-label">Preço do item</span> — atacado (preferido) ou varejo</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">🔁</span>
+            <span><span class="g-ingr-label">Pelo menos 2 compras do mesmo produto</span> — para calcular tendência</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-steps">
+          <div class="g-step"><div class="g-step-num">1</div><div class="g-step-text">Varre todos os itens de todo o histórico. Normaliza o nome para minúsculas para agrupar variações de escrita do mesmo produto.</div></div>
+          <div class="g-step"><div class="g-step-num">2</div><div class="g-step-text">Para cada produto, coleta os preços com suas datas. Usa preço atacado; se zero, usa varejo.</div></div>
+          <div class="g-step"><div class="g-step-num">3</div><div class="g-step-text">Ordena por data, compara primeiro e último preço:
+            <code>variação% = (último − primeiro) / primeiro × 100</code></div></div>
+          <div class="g-step"><div class="g-step-num">4</div><div class="g-step-text">Descarta produtos com 1 só registro (sem tendência). Ordena pela <strong>variação absoluta</strong> e pega os top 8 movedores.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SEÇÃO 4 · INTELIGÊNCIA ═══════════════════════════════════ -->
+<div class="g-section-label">🤖 Análise &amp; Inteligência Preditiva</div>
+
+<!-- 09 INFLAÇÃO -->
+<div class="g-card" id="s09">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">📉</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 09</div>
+        <div class="g-card-name">Tendência de Inflação Pessoal</div>
+        <div class="g-card-tagline">Linha dupla · gasto médio/mês + variação % acumulada desde o início</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-all">Todo o histórico</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          A <strong>inflação "da sua casa"</strong> — o quanto o seu gasto médio mensal aumentou (ou diminuiu)
+          ao longo do tempo comparado ao seu mês de referência (o primeiro mês registrado).
+          A linha colorida mostra o gasto médio por mês; a linha roxa tênue mostra a variação percentual
+          acumulada desde a primeira compra.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-steps">
+          <div class="g-step"><div class="g-step-num">1</div><div class="g-step-text">Agrupa todas as listas por mês e calcula o <strong>gasto médio</strong> de cada mês: <code>total_do_mês / número_de_listas_no_mês</code>.</div></div>
+          <div class="g-step"><div class="g-step-num">2</div><div class="g-step-text">O <strong>primeiro mês</strong> com dados é a base (100%). Variação = <code>(média_atual − média_base) / média_base × 100</code>.</div></div>
+          <div class="g-step"><div class="g-step-num">3</div><div class="g-step-text">Cor da linha: <strong>vermelha</strong> se o último mês está acima da base (inflação), <strong>verde</strong> se abaixo (deflação).</div></div>
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Mínimo necessário</div>
+        <div class="g-ingr">
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">📅</span>
+            <span>Listas salvas em <span class="g-ingr-label">pelo menos 2 meses diferentes</span> — sem isso o gráfico não tem ponto de comparação</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+        </div>
+      </div>
+      <div class="g-tip">
+        <span class="g-tip-ico">💡</span>
+        <span class="g-tip-text"><strong>Atenção:</strong> este gráfico usa o gasto médio por mês, não o total. Se você fez 4 compras pequenas num mês e 1 grande em outro, os valores podem parecer inconsistentes. O objetivo é medir o padrão, não o volume.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 10 PREVISÃO -->
+<div class="g-card" id="s10">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">🔮</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 10</div>
+        <div class="g-card-name">Previsão do Próximo Mês</div>
+        <div class="g-card-tagline">Média móvel ponderada · os meses mais recentes pesam mais</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-all">Todo o histórico</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          Uma estimativa de quanto você vai gastar no próximo mês, calculada com base nos últimos
+          meses de histórico. Mostra também: o indicador de <strong>confiança</strong> da previsão
+          (depende de quantos meses de dados existem) e a <strong>tendência</strong> (se o próximo mês
+          deve ser maior ou menor que o atual).
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula — Média Móvel Ponderada</div>
+        <div class="g-formula">
+          <div class="g-formula-title">Fórmula com janela de 3 meses</div>
+          <div class="g-formula-line">
+            <span class="var">prev</span>
+            <span class="op">=</span>
+            <span class="op">(</span>
+            <span class="var">mês_3</span><span class="op">×</span><span class="val">1</span>
+            <span class="op">+</span>
+            <span class="var">mês_2</span><span class="op">×</span><span class="val">2</span>
+            <span class="op">+</span>
+            <span class="var">mês_1</span><span class="op">×</span><span class="val">3</span>
+            <span class="op">)</span>
+            <span class="op">÷</span>
+            <span class="val">6</span>
+            <span class="note">(mês_1 = mais recente)</span>
+          </div>
+        </div>
+        <div class="g-block-text" style="margin-top:10px">
+          Os pesos são <strong>1, 2, 3</strong> — o mês mais recente pesa três vezes mais que o mais antigo.
+          Com menos de 3 meses disponíveis, usa o que tiver (janela menor). Com 2 meses: pesos 1 e 2.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Nível de confiança</div>
+        <div class="g-conf-row">
+          <div class="g-conf-chip conf-high">🟢 Alta — 6+ meses de histórico</div>
+          <div class="g-conf-chip conf-med">🟡 Média — 4 a 5 meses</div>
+          <div class="g-conf-chip conf-low">🔴 Baixa — 2 a 3 meses</div>
+        </div>
+        <div class="g-block-text" style="margin-top:12px">
+          Com menos dados, eventos pontuais (Natal, volta às aulas) distorcem muito a média.
+          A confiança alta significa que o padrão de gastos está estabilizado em histórico suficiente.
+        </div>
+      </div>
+      <div class="g-tip">
+        <span class="g-tip-ico">🔮</span>
+        <span class="g-tip-text"><strong>Exemplo prático:</strong> se você gastou R$ 800 há 3 meses, R$ 950 há 2 meses e R$ 1.000 no mês passado, a previsão é <code>(800×1 + 950×2 + 1000×3) / 6 = R$ 958,33</code>. A tendência seta indica se R$ 958 é maior ou menor que o último mês (R$ 1.000).</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SEÇÃO 5 · LISTAS E PRODUTOS ══════════════════════════════ -->
+<div class="g-section-label">📦 Produtos &amp; Listas</div>
+
+<!-- 12 TOP PRODUTOS -->
+<div class="g-card" id="s12">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">📦</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 12</div>
+        <div class="g-card-name">Top Produtos por Preço</div>
+        <div class="g-card-tagline">Tabela com barra de progresso · os 12 produtos que mais pesam no bolso</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          Os 12 produtos nos quais você <strong>mais gastou no total</strong> dentro do período selecionado.
+          Para cada produto: posição no ranking (🥇🥈🥉 para os três primeiros), total gasto,
+          quantidade acumulada comprada e a barra de progresso indica a proporção em relação ao produto mais caro.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">O que precisa</div>
+        <div class="g-ingr">
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">💲</span>
+            <span><span class="g-ingr-label">Preço do item</span> — atacado ou varejo preenchidos</span>
+            <span class="g-ingr-req req-must">obrigatório</span>
+          </div>
+          <div class="g-ingr-row">
+            <span class="g-ingr-ico">📏</span>
+            <span><span class="g-ingr-label">Quantidade + unidade</span> — para calcular a quantidade total comprada</span>
+            <span class="g-ingr-req req-nice">recomendado</span>
+          </div>
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Como calcula</div>
+        <div class="g-steps">
+          <div class="g-step"><div class="g-step-num">1</div><div class="g-step-text">Percorre todos os itens de todas as listas no período. Agrupa pelo <strong>nome exato</strong> do produto (case-sensitive).</div></div>
+          <div class="g-step"><div class="g-step-num">2</div><div class="g-step-text">Calcula o custo de cada item: <code>preço_atacado × quantidade</code> (ou varejo se atacado for zero).</div></div>
+          <div class="g-step"><div class="g-step-num">3</div><div class="g-step-text">Converte unidades automaticamente: g → kg, ml → L. Assim "500g de carne" e "1kg de carne" somam em kg.</div></div>
+          <div class="g-step"><div class="g-step-num">4</div><div class="g-step-text">Ordena por <strong>total gasto decrescente</strong> e exibe os top 12. A barra do primeiro produto = 100%; os demais são proporcionais.</div></div>
+        </div>
+      </div>
+      <div class="g-tip">
+        <span class="g-tip-ico">💡</span>
+        <span class="g-tip-text"><strong>Atenção ao nome:</strong> "Arroz" e "arroz" são tratados como produtos diferentes. Mantenha uma grafia consistente para que o agrupamento funcione corretamente e o ranking seja preciso.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 13 LINHA DO TEMPO -->
+<div class="g-card" id="s13">
+  <div class="g-card-inner">
+    <div class="g-card-head">
+      <div class="g-card-ico-wrap">🕒</div>
+      <div class="g-card-meta">
+        <div class="g-card-num">Gráfico 13</div>
+        <div class="g-card-name">Linha do Tempo</div>
+        <div class="g-card-tagline">Cards cronológicos · registro visual de cada lista salva</div>
+        <div class="g-card-scope">
+          <span class="g-tag g-tag-period">Responde ao período</span>
+          <span class="g-tag g-tag-type">Responde ao tipo</span>
+        </div>
+      </div>
+    </div>
+    <div class="g-card-body">
+      <div class="g-block">
+        <div class="g-block-lbl">O que mostra</div>
+        <div class="g-block-text">
+          Cada lista salva aparece como um card, ordenado do mais recente para o mais antigo.
+          Exibe: data de compra, nome da lista, tipo, mercado e valor total.
+          Listas com data automática recebem o aviso <strong>"(auto)"</strong> em laranja —
+          significa que a data não foi preenchida manualmente e pode não refletir o dia real da compra.
+          Pagamentos divididos aparecem com todos os métodos listados.
+        </div>
+      </div>
+      <div class="g-block">
+        <div class="g-block-lbl">Data "(auto)" vs data real</div>
+        <div class="g-block-text">
+          Quando uma lista é salva sem preencher o campo "Data de Compra", o sistema usa a
+          <strong>data de criação da lista</strong> (quando você abriu o app para montar a lista),
+          não a data de quando foi ao mercado. Para corrigir isso, edite a lista no Histórico
+          e defina a data manualmente.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="g-cta">
+  <div class="g-cta-inner">
+    <div class="g-cta-text">
+      <h3>Pronto para analisar seus dados?</h3>
+      <p>Quanto mais listas você salvar com preços, mercado e data de compra preenchidos, mais precisos e ricos ficam todos os gráficos — especialmente a Previsão e a Inflação Pessoal.</p>
+    </div>
+    <a class="g-cta-btn" href="dashboard.html">Ir para o Dashboard →</a>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footer-accent-bar"></div>
+  <div class="footer-container">
+    <div class="footer-main">
+      <div class="footer-brand">
+        <span class="footer-project">🛒 Lista Inteligente</span>
+        <span class="footer-copy">Guia de Gráficos · v3.0</span>
+      </div>
+      <div class="footer-credits">
+        Feito com 💚 por <a class="footer-link" href="#">Erick de Lima Souza</a>
+        · <span class="footer-accent">Green Monster Project</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Sync theme from localStorage
+(function(){
+  const t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+
+// Smooth scroll for TOC links
+document.querySelectorAll('.g-toc-link').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const id = a.getAttribute('href').slice(1);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+</body>
+</html>
