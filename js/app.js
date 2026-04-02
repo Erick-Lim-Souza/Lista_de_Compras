@@ -498,7 +498,7 @@ class ShoppingList {
     this.confirmCancel = $('confirmCancel');
     this.historyModal  = $('historyModal');
     this.historyClose  = $('historyClose');
-    this.saveModal     = $('saveListModal');
+    this.historyList   = $('historyList');
     this.listNameInput = $('listNameInput');
     this.saveCancel    = $('saveCancel');
     this.saveConfirm   = $('saveConfirm');
@@ -509,6 +509,7 @@ class ShoppingList {
     this.compareExec   = $('compareExecute');
     this.compareClose  = $('compareClose');
     this.suggestModal  = $('suggestModal');
+    this.saveModal     = $('saveModal');
   }
 
   // Liga os cliques aos métodos
