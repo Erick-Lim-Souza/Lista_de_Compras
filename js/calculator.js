@@ -168,91 +168,87 @@ const Calculator = (() => {
    * @param {Object} options - Opções de filtragem (ex: minOccurrences).
    * @returns {Array} Lista de produtos analisados com status de urgência.
    */
-  function analyzeAllProducts(savedLists, options = {}) {
-    const minOccurrences = options.minOccurrences || 1;
-    const productMap = new Map();
+function analyzeAllProducts(savedLists, options = {}) {
+  const minOccurrences = options.minOccurrences || 1;
+  const productMap = new Map();
 
-    // Agrupa ocorrências por nome normalizado
-    (savedLists || []).forEach(list => {
-      (list.items || []).forEach(item => {
-        const name = item.name.trim();
-        const norm = name.toLowerCase();
-        if (!productMap.has(norm)) {
-          productMap.set(norm, {
-            name,
-            norm,
-            category: item.category,
-            listType: list.listType,
-            occurrences: 0,
-            dates: [],
-            lastPrice: 0,
-            lastQty: 0,
-            lastUnit: ''
-          });
-        }
-        const p = productMap.get(norm);
-        p.occurrences++;
-        const rawDate = list.purchaseDate || list.createdAt || list.date;
-        if (rawDate) {
-          const d = new Date(rawDate);
-          if (!isNaN(d)) p.dates.push(d);
-        }
-        // Atualiza com os dados da compra mais recente (assumindo que as listas estão em ordem ou serão ordenadas)
-        p.lastPrice = item.priceWholesale > 0 ? item.priceWholesale : item.priceRetail;
-        p.lastQty = item.quantity;
-        p.lastUnit = item.unit;
+  (savedLists || []).forEach(list => {
+    const listDate = list.purchaseDate || list.createdAt || list.date;
+    if (!listDate) return;
+    const dateObj = new Date(listDate);
+    if (isNaN(dateObj)) return;
+
+    (list.items || []).forEach(item => {
+      const name = item.name.trim();
+      const norm = name.toLowerCase();
+      if (!productMap.has(norm)) {
+        productMap.set(norm, {
+          name,
+          norm,
+          category: item.category,
+          listType: list.listType,
+          purchases: [],   // array de {date, price, qty, unit}
+        });
+      }
+      const p = productMap.get(norm);
+      p.purchases.push({
+        date: dateObj,
+        price: item.priceWholesale > 0 ? item.priceWholesale : item.priceRetail,
+        qty: item.quantity,
+        unit: item.unit
       });
     });
+  });
 
-    const results = [];
-    productMap.forEach(p => {
-      if (p.occurrences < minOccurrences) return;
+  const results = [];
+  productMap.forEach(p => {
+    if (p.purchases.length < minOccurrences) return;
+    p.purchases.sort((a, b) => a.date - b.date);
+    const last = p.purchases[p.purchases.length - 1];
+    const first = p.purchases[0];
+    const lastDate = last.date;
 
-      p.dates.sort((a, b) => a - b);
-      const lastDate = p.dates[p.dates.length - 1];
-      let avgDays = null;
-
-      if (p.dates.length >= 2) {
-        let totalDiff = 0;
-        for (let i = 1; i < p.dates.length; i++) {
-          totalDiff += (p.dates[i] - p.dates[i - 1]) / 864e5;
-        }
-        avgDays = Math.round(totalDiff / (p.dates.length - 1));
+    let avgDays = null;
+    if (p.purchases.length >= 2) {
+      let totalDiff = 0;
+      for (let i = 1; i < p.purchases.length; i++) {
+        totalDiff += (p.purchases[i].date - p.purchases[i-1].date) / 864e5;
       }
+      avgDays = Math.round(totalDiff / (p.purchases.length - 1));
+    }
 
-      const daysSinceLast = lastDate ? Math.round((Date.now() - lastDate.getTime()) / 864e5) : 0;
-      const pct = avgDays ? daysSinceLast / avgDays : 0;
-      
-      let urgency = 'unknown';
-      if (avgDays) {
-        if (pct >= 1.0) urgency = 'overdue';
-        else if (pct >= 0.85) urgency = 'soon';
-        else urgency = 'ok';
-      }
+    const daysSinceLast = Math.round((Date.now() - lastDate.getTime()) / 864e5);
+    const pct = avgDays ? daysSinceLast / avgDays : 0;
+    let urgency = 'unknown';
+    if (avgDays) {
+      if (pct >= 1.0) urgency = 'overdue';
+      else if (pct >= 0.85) urgency = 'soon';
+      else urgency = 'ok';
+    }
 
-      results.push({
-        name: p.name,
-        norm: p.norm,
-        category: p.category,
-        listType: p.listType,
-        occurrences: p.occurrences,
-        lastDate,
-        avgDays,
-        daysSinceLast,
-        daysUntilNext: avgDays ? Math.max(0, avgDays - daysSinceLast) : null,
-        pct: Math.min(pct, 1.2), // Cap para visualização
-        urgency,
-        lastPrice: p.lastPrice,
-        lastQty: p.lastQty,
-        lastUnit: p.lastUnit
-      });
+    results.push({
+      name: p.name,
+      norm: p.norm,
+      category: p.category,
+      listType: p.listType,
+      occurrences: p.purchases.length,
+      lastDate,
+      avgDays,
+      daysSinceLast,
+      daysUntilNext: avgDays ? Math.max(0, avgDays - daysSinceLast) : null,
+      pct: Math.min(pct, 1.2),
+      urgency,
+      lastPrice: last.price,
+      lastQty: last.qty,
+      lastUnit: last.unit
     });
+  });
 
-    return results.sort((a, b) => {
-      const score = { overdue: 3, soon: 2, ok: 1, unknown: 0 };
-      return score[b.urgency] - score[a.urgency] || b.pct - a.pct;
-    });
-  }
+  return results.sort((a, b) => {
+    const score = { overdue: 3, soon: 2, ok: 1, unknown: 0 };
+    return score[b.urgency] - score[a.urgency] || b.pct - a.pct;
+  });
+}
 
   return { 
     calculateUnitPrice, 
