@@ -10,22 +10,26 @@
 
 'use strict';
 
-// ── MAPEAMENTO DE CATEGORIAS (Dados puros, fáceis de expandir) ──
+// ═══════════════════════════════════════════════════════════════
+// MAPEAMENTO DE CATEGORIAS (Dados puros, fáceis de expandir)
+// ═══════════════════════════════════════════════════════════════
 const LIST_CATEGORIES = {
-  'Supermercado': { 'Alimentos':'🍎','Hortifruti':'🥦','Ovo':'🥚','Carnes':'🍖','Limpeza':'🧽','Higiene':'🧴','Bebidas':'🥤','Outros':'📦' },
-  'Feira Livre':  { 'Alimentos':'🍎','Hortifruti':'🥦','Ovo':'🥚','Carnes':'🍖','Limpeza':'🧽','Higiene':'🧴','Bebidas':'🥤','Outros':'📦' },
-  'Açougue':      { 'Carne Bovina':'🐄','Carne Frango':'🐔','Carne Suína':'🐖','Carne Peixe':'🐟','Carne Javali':'🐗','Ovo':'🥚','Outros':'📦' },
-  'Roupas':       { 'Camisetas':'👕','Calças':'👖','Sapatos':'👟','Acessórios':'👜','Íntimas':'🩲','Outros':'📦' },
-  'Farmácia':     { 'Medicamentos':'💊','Higiene':'🧴','Cosméticos':'💄','Vitaminas':'🍯','Primeiros Socorros':'🩹','Outros':'📦' },
-  'Eletrônicos':  { 'Smartphones':'📱','Computadores':'💻','Acessórios':'🔌','Games':'🎮','Audio/Video':'🎧','Outros':'📦' },
-  'Casa e Jardim':{ 'Móveis':'🪑','Decoração':'🖼️','Ferramentas':'🔧','Jardim':'🌱','Limpeza':'🧽','Outros':'📦' },
+  'Supermercado':  { 'Alimentos':'🍎','Hortifruti':'🥦','Ovo':'🥚','Carnes':'🍖','Limpeza':'🧽','Higiene':'🧴','Bebidas':'🥤','Outros':'📦' },
+  'Feira Livre':   { 'Alimentos':'🍎','Hortifruti':'🥦','Ovo':'🥚','Carnes':'🍖','Limpeza':'🧽','Higiene':'🧴','Bebidas':'🥤','Outros':'📦' },
+  'Açougue':       { 'Carne Bovina':'🐄','Carne Frango':'🐔','Carne Suína':'🐖','Carne Peixe':'🐟','Carne Javali':'🐗','Ovo':'🥚','Outros':'📦' },
+  'Roupas':        { 'Camisetas':'👕','Calças':'👖','Sapatos':'👟','Acessórios':'👜','Íntimas':'🩲','Outros':'📦' },
+  'Farmácia':      { 'Medicamentos':'💊','Higiene':'🧴','Cosméticos':'💄','Vitaminas':'🍯','Primeiros Socorros':'🩹','Outros':'📦' },
+  'Eletrônicos':   { 'Smartphones':'📱','Computadores':'💻','Acessórios':'🔌','Games':'🎮','Audio/Video':'🎧','Outros':'📦' },
+  'Casa e Jardim': { 'Móveis':'🪑','Decoração':'🖼️','Ferramentas':'🔧','Jardim':'🌱','Limpeza':'🧽','Outros':'📦' },
 };
 
 function _getCategoriesForType(type) {
   return LIST_CATEGORIES[type] || LIST_CATEGORIES['Supermercado'];
 }
 
-// ── FUNÇÃO DE COMPARAÇÃO DE LISTAS ──
+// ═══════════════════════════════════════════════════════════════
+// FUNÇÃO AUXILIAR: COMPARAÇÃO DE LISTAS
+// ═══════════════════════════════════════════════════════════════
 function _compareLists(items1, items2) {
   const common = [], onlyInList1 = [], onlyInList2 = [];
   items1.forEach(i1 => {
@@ -40,9 +44,10 @@ function _compareLists(items1, items2) {
   return { common, onlyInList1, onlyInList2 };
 }
 
-// ── SUGGESTION MANAGER (Assistente Preditivo) ──────────────────
-// Responsável por gerenciar o modal de sugestões de compras ("💡 Sugestões").
-// Analisa o histórico e sugere itens que provavelmente acabaram.
+// ═══════════════════════════════════════════════════════════════
+// SUGGESTION MANAGER (Assistente Preditivo)
+// A partir daqui é gerenciada a interface de sugestões de compras.
+// ═══════════════════════════════════════════════════════════════
 const SuggestionManager = (() => {
   const LIST_TYPE_ICONS = {
     'Supermercado':  '🛒',
@@ -60,10 +65,11 @@ const SuggestionManager = (() => {
     unknown: '❓ Novo',
   };
 
-  let _allProducts = [];     // Guarda todos os produtos analisados
-  let _selected    = new Set(); // Itens marcados pelo usuário na sugestão
+  let _allProducts = [];
+  let _selected    = new Set();
   let _activeType  = 'Todos';
 
+  // ── Renderização das abas de tipo ─────────────────────────────
   function _renderTabs() {
     const wrap = document.getElementById('suggestTypeTabs');
     if (!wrap) return;
@@ -100,6 +106,7 @@ const SuggestionManager = (() => {
     });
   }
 
+  // ── Resumo da situação (chips) ────────────────────────────────
   function _renderSummary() {
     const el = document.getElementById('suggestSummary');
     if (!el) return;
@@ -135,62 +142,94 @@ const SuggestionManager = (() => {
     return                        { dots: '○○○', label: 'novo',  cls: 'conf-none' };
   }
 
+  // ── Renderização da lista de produtos (SEGURA) ─────────────────
+  // A partir daqui é criada a lista de produtos sugeridos.
+  // Nenhum dado do usuário é inserido via innerHTML.
   function _renderList() {
     const el = document.getElementById('suggestList');
     if (!el) return;
     const items = _filtered();
+    el.innerHTML = ''; // apenas para esvaziar
 
     if (!items.length) {
-      el.innerHTML = `<div class="suggest-nd">
-        <span class="suggest-nd-icon">🔍</span>
+      const nd = document.createElement('div');
+      nd.className = 'suggest-nd';
+      nd.innerHTML = `<span class="suggest-nd-icon">🔍</span>
         Nenhum produto encontrado para este tipo de lista.<br>
-        Salve mais listas para o app aprender seus ciclos.
-      </div>`;
+        Salve mais listas para o app aprender seus ciclos.`;
+      el.appendChild(nd);
       return;
     }
 
-    el.innerHTML = '';
     items.forEach(p => {
       const sel = _selected.has(p.norm);
       const pctCapped = Math.min((p.pct || 0) * 100, 100);
-      const lastDateStr = p.lastDate
-        ? p.lastDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-        : '—';
-      const cycleStr = p.avgDays ? `ciclo ~${p.avgDays}d` : 'dados insuficientes';
-      const daysStr  = p.avgDays
-        ? (p.urgency === 'overdue'
-            ? `${Math.max(0, p.daysSinceLast - p.avgDays)}d vencido`
-            : p.urgency === 'soon'
-              ? `${p.daysUntilNext}d para repor`
-              : `${p.daysUntilNext}d restantes`)
-        : `última: ${lastDateStr}`;
-
+      const conf = _confidence(p.occurrences);
+      const urgency = p.urgency;
+      const qtyStr = `${p.lastQty} ${p.lastUnit || 'un'}`;
       const priceStr = p.lastPrice > 0
         ? `R$${p.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · `
         : '';
 
-      const conf = _confidence(p.occurrences);
-      const qtyStr = `${p.lastQty} ${p.lastUnit || 'un'}`;
-
       const row = document.createElement('div');
-      row.className = `sug-item urgency-${p.urgency}${sel ? ' selected' : ''}`;
+      row.className = `sug-item urgency-${urgency}${sel ? ' selected' : ''}`;
       row.dataset.norm = p.norm;
-      row.innerHTML = `
-        <div class="sug-check">${sel ? '✓' : ''}</div>
-        <div class="sug-info">
-          <div class="sug-name">${p.name}
-            <span class="sug-conf ${conf.cls}" title="Confiança ${conf.label} (${p.occurrences}×)">${conf.dots}</span>
-          </div>
-          <div class="sug-meta">${LIST_TYPE_ICONS[p.listType] || '📋'} ${p.listType} · ${p.category} · ${cycleStr} · ${daysStr}</div>
-          <div class="sug-detail">${priceStr}${qtyStr} · ${p.occurrences}× comprado</div>
-        </div>
-        <span class="sug-urgency-badge ${p.urgency}">${URGENCY_LABELS[p.urgency]}</span>
-        <div class="sug-progress">
-          <span class="sug-pct">${p.avgDays ? Math.round(p.pct * 100) + '%' : '?'}</span>
-          <div class="sug-bar-bg">
-            <div class="sug-bar-fill ${p.urgency}" style="width:${pctCapped}%"></div>
-          </div>
-        </div>`;
+
+      // Checkbox visual
+      const checkDiv = document.createElement('div');
+      checkDiv.className = 'sug-check';
+      checkDiv.textContent = sel ? '✓' : '';
+
+      // Info
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'sug-info';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'sug-name';
+      nameDiv.textContent = p.name; // seguro!
+
+      const confSpan = document.createElement('span');
+      confSpan.className = `sug-conf ${conf.cls}`;
+      confSpan.title = `Confiança ${conf.label} (${p.occurrences}×)`;
+      confSpan.textContent = conf.dots;
+      nameDiv.appendChild(confSpan);
+
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'sug-meta';
+      metaDiv.textContent = `${LIST_TYPE_ICONS[p.listType] || '📋'} ${p.listType} · ${p.category} · ciclo ~${p.avgDays || '?'}d · ${urgency === 'overdue' ? 'acabou' : urgency === 'soon' ? 'acabando' : 'em dia'}`;
+
+      const detailDiv = document.createElement('div');
+      detailDiv.className = 'sug-detail';
+      detailDiv.textContent = `${priceStr}${qtyStr} · ${p.occurrences}× comprado`;
+
+      infoDiv.appendChild(nameDiv);
+      infoDiv.appendChild(metaDiv);
+      infoDiv.appendChild(detailDiv);
+
+      // Badge de urgência
+      const badge = document.createElement('span');
+      badge.className = `sug-urgency-badge ${urgency}`;
+      badge.textContent = URGENCY_LABELS[urgency];
+
+      // Barra de progresso
+      const progDiv = document.createElement('div');
+      progDiv.className = 'sug-progress';
+      const pctSpan = document.createElement('span');
+      pctSpan.className = 'sug-pct';
+      pctSpan.textContent = p.avgDays ? Math.round(p.pct * 100) + '%' : '?';
+      const barBg = document.createElement('div');
+      barBg.className = 'sug-bar-bg';
+      const barFill = document.createElement('div');
+      barFill.className = `sug-bar-fill ${urgency}`;
+      barFill.style.width = pctCapped + '%';
+      barBg.appendChild(barFill);
+      progDiv.appendChild(pctSpan);
+      progDiv.appendChild(barBg);
+
+      row.appendChild(checkDiv);
+      row.appendChild(infoDiv);
+      row.appendChild(badge);
+      row.appendChild(progDiv);
 
       row.addEventListener('click', () => _toggleItem(p.norm, row));
       el.appendChild(row);
@@ -332,7 +371,10 @@ const SuggestionManager = (() => {
 })();
 
 
-// ── CONTROLES DE PAGAMENTO ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// CONTROLES DE PAGAMENTO (PaymentManager)
+// A partir daqui é criada a forma de pagamento utilizada na lista.
+// ═══════════════════════════════════════════════════════════════
 const PAYMENT_METHODS = {
   dinheiro:         '💵 Dinheiro',
   pix:              '⚡ PIX',
@@ -344,11 +386,9 @@ const PAYMENT_METHODS = {
 };
 function _paymentLabel(method) { return PAYMENT_METHODS[method] || method; }
 
-// ── PaymentManager (Gestor de Pagamentos Múltiplos) ────────────
-// Controla a UI de pagamentos compostos no modal "Salvar Lista"
 const PaymentManager = (() => {
-  let _rows    = [];   
-  let _total   = 0;   
+  let _rows    = [];
+  let _total   = 0;
 
   function _fmt(n) {
     return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -388,7 +428,7 @@ const PaymentManager = (() => {
       del.type = 'button'; del.className = 'pm-del'; del.textContent = '✕';
       del.title = 'Remover';
       del.addEventListener('click', () => {
-        if (_rows.length === 1) return;   
+        if (_rows.length === 1) return;
         _rows.splice(i, 1); _render(); _updateStatus();
       });
       if (_rows.length === 1) del.style.visibility = 'hidden';
@@ -441,8 +481,8 @@ const PaymentManager = (() => {
 
   function validate() {
     const pmts = get();
-    if (!pmts.length) return true;                         
-    if (_total <= 0)  return true;                         
+    if (!pmts.length) return true;
+    if (_total <= 0)  return true;
     const sum = pmts.reduce((s, r) => s + r.amount, 0);
     return Math.abs(sum - _total) < 0.01;
   }
@@ -450,7 +490,10 @@ const PaymentManager = (() => {
   return { init, add, get, validate };
 })();
 
-// ── CLASSE PRINCIPAL (SHOPPING LIST) ───────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// CLASSE PRINCIPAL (ShoppingList)
+// A partir daqui é criada a lista de compras e seus controles.
+// ═══════════════════════════════════════════════════════════════
 class ShoppingList {
 
   constructor() {
@@ -466,6 +509,7 @@ class ShoppingList {
     this._init();
   }
 
+  // ── Inicialização: bind de elementos e eventos ─────────────────
   _init() {
     this._bindElements();
     this._loadFromStorage();
@@ -478,7 +522,6 @@ class ShoppingList {
     });
   }
 
-  // Captura os elementos do HTML
   _bindElements() {
     const $ = id => document.getElementById(id);
     this.form                = $('itemForm');
@@ -509,14 +552,13 @@ class ShoppingList {
     this.compareExec   = $('compareExecute');
     this.compareClose  = $('compareClose');
     this.suggestModal  = $('suggestModal');
-    this.saveModal     = $('saveModal');
+    this.saveModal     = $('saveListModal');   // ID correto!
   }
 
-  // Liga os cliques aos métodos
+  // ── Vinculação de eventos da interface ─────────────────────────
   _bindEvents() {
     const on = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
 
-    // Salvar item via botão "Adicionar" ou "Enter"
     this.form.addEventListener('submit', e => this._handleSubmit(e));
 
     on('clearAllButton',     'click', () => this._confirmClearAll());
@@ -547,7 +589,7 @@ class ShoppingList {
     // Backup
     on('backupDownload', 'click', () => {
       Storage.exportBackup();
-      UI.showToast('Backup baixado com sucesso!');
+      UI.showToast('Backup baixado!');
     });
     on('backupUpload', 'click', () => document.getElementById('backupFileInput').click());
     document.getElementById('backupFileInput')?.addEventListener('change', async e => {
@@ -568,22 +610,20 @@ class ShoppingList {
     this.historyClose.addEventListener('click',   () => UI.hideModal(this.historyModal));
     this.saveCancel.addEventListener('click',     () => UI.hideModal(this.saveModal));
     this.saveConfirm.addEventListener('click',    () => this._saveCurrentList());
+    this.compareClose.addEventListener('click',   () => UI.hideModal(this.compareModal));
+    this.compareExec.addEventListener('click',    () => this._executeComparison());
 
     const pmAddBtn = document.getElementById('pmAddBtn');
     if (pmAddBtn) pmAddBtn.addEventListener('click', () => PaymentManager.add());
 
-    this.compareClose.addEventListener('click',   () => UI.hideModal(this.compareModal));
-    this.compareExec.addEventListener('click',    () => this._executeComparison());
-    
-    // Suggestion modal bindings
-    document.getElementById('suggestButton')?.addEventListener('click', () => this._openSuggest());
-    document.getElementById('suggestClose')?.addEventListener('click',  () => UI.hideModal(this.suggestModal));
-    document.getElementById('suggestSelectAll')?.addEventListener('click', () => SuggestionManager.selectAllUrgent());
-    document.getElementById('suggestClearAll')?.addEventListener('click',  () => SuggestionManager.clearAll());
-    document.getElementById('suggestCreate')?.addEventListener('click',    () => this._createFromSuggestion());
+    // Sugestões
+    on('suggestButton',  'click', () => this._openSuggest());
+    on('suggestClose',   'click', () => UI.hideModal(this.suggestModal));
+    on('suggestSelectAll','click', () => SuggestionManager.selectAllUrgent());
+    on('suggestClearAll', 'click', () => SuggestionManager.clearAll());
+    on('suggestCreate',   'click', () => this._createFromSuggestion());
 
-    document.getElementById('priceHistoryClose')?.addEventListener('click',
-      () => UI.hideModal(document.getElementById('priceHistoryModal')));
+    on('priceHistoryClose', 'click', () => UI.hideModal(document.getElementById('priceHistoryModal')));
 
     this._bindConfigEvents();
 
@@ -658,7 +698,7 @@ class ShoppingList {
     };
 
     if (this.editingIndex >= 0) {
-      item.id = this.items[this.editingIndex].id; 
+      item.id = this.items[this.editingIndex].id;
       this.items[this.editingIndex] = item;
       this.editingIndex = -1;
       this.addButton.textContent = '➕ Adicionar Item';
@@ -704,16 +744,8 @@ class ShoppingList {
   toggleItem(index) {
     const item = this.items[index];
     item.completed = !item.completed;
-
-    // Feedback tátil (Vibração para uso ágil no mercado)
     if ('vibrate' in navigator) navigator.vibrate(40);
-
-    // Auto-sort: Manda os itens concluídos para o fim
-    this.items.sort((a, b) => {
-      if (a.completed === b.completed) return 0;
-      return a.completed ? 1 : -1;
-    });
-
+    this.items.sort((a, b) => (a.completed ? 1 : 0) - (b.completed ? 1 : 0));
     this._saveToStorage();
     this.render();
   }
@@ -752,7 +784,7 @@ class ShoppingList {
 
   _confirmClearAll() {
     if (!this.items.length) { UI.showToast('A lista já está vazia!'); return; }
-    UI.setText(this.confirmMsg, 'Deseja limpar toda a lista?');
+    UI.setText(this.confirmMsg, 'Limpar toda a lista?');
     UI.showModal(this.confirmModal);
     this.confirmOk.onclick = () => {
       this.items = [];
@@ -773,7 +805,7 @@ class ShoppingList {
     else navigator.clipboard.writeText(body).then(() => UI.showToast('Lista copiada!'));
   }
 
-  // ── FUNÇÕES DE HISTÓRICO, CARREGAR E SALVAR LISTA ──────────────
+  // ── HISTÓRICO, SALVAR, CARREGAR ───────────────────────────────
   _showHistory() {
     UI.renderHistory(Storage.getSavedLists(), {
       onLoad:     idx => this.loadList(idx),
@@ -787,23 +819,19 @@ class ShoppingList {
     const lists = Storage.getSavedLists();
     const list  = lists[index];
     if (!list) return;
-
     const currentDate = list.date
       ? new Date(list.date).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10);
-
     const newDateStr = window.prompt(
       `Alterar data da lista "${list.name}"\n\nFormato: AAAA-MM-DD`,
       currentDate
     );
-
     if (!newDateStr) return;
     const parsed = new Date(newDateStr + 'T12:00:00');
     if (isNaN(parsed)) { UI.showToast('Data inválida!'); return; }
-
     Storage.saveNamedList(list.name, list.items, list.listType,
       parsed.toISOString(), list.payments || [], list.total || 0, list.market || null);
-    this._showHistory();   
+    this._showHistory();
     UI.showToast(`Data atualizada para ${parsed.toLocaleDateString('pt-BR')}!`);
   }
 
@@ -829,6 +857,7 @@ class ShoppingList {
     UI.showToast(`Lista "${name}" excluída!`);
   }
 
+  // ── SUGESTÕES ─────────────────────────────────────────────────
   _openSuggest() {
     SuggestionManager.open(Storage.getSavedLists());
     UI.showModal(this.suggestModal);
@@ -837,9 +866,7 @@ class ShoppingList {
   _createFromSuggestion() {
     const result = SuggestionManager.createList();
     if (!result) return;
-
     UI.hideModal(this.suggestModal);
-
     if (!result.multi) {
       this._applySuggestedList(result.items, result.listType);
       UI.showToast(`✅ ${result.items.length} itens · ${result.listType}`);
@@ -862,23 +889,19 @@ class ShoppingList {
     this.render();
   }
 
+  // ── SALVAR LISTA ──────────────────────────────────────────────
   _showSaveDialog() {
     this.listNameInput.value = this.currentListName;
     const saved = Storage.getSavedLists().find(l => l.name === this.currentListName);
-
-    // Usa sempre o fuso local ignorando shifts
     if (this.listDateInput) {
       this.listDateInput.value = saved?.purchaseDate
         ? new Date(saved.purchaseDate).toISOString().slice(0, 10)
         : new Date().toISOString().slice(0, 10);
     }
-
     const total = Calculator.calculateTotals(this.items).general;
     PaymentManager.init(saved?.payments || null, total);
-
     const marketEl = document.getElementById('marketInput');
     if (marketEl) marketEl.value = saved?.market || '';
-
     UI.showModal(this.saveModal);
     this.listNameInput.focus();
   }
@@ -886,29 +909,22 @@ class ShoppingList {
   _saveCurrentList() {
     const name = this.listNameInput.value.trim();
     if (!name) { UI.showToast('Digite um nome!'); return; }
-
-    const dateStr      = this.listDateInput?.value;
-    
-    // T12:00:00 protege contra bug de Timezone que esconde listas no Dashboard
+    const dateStr = this.listDateInput?.value;
     const purchaseDate = dateStr ? new Date(dateStr + 'T12:00:00').toISOString() : null;
-    const payments     = PaymentManager.get();
-    const total        = Calculator.calculateTotals(this.items).general;
-
+    const payments = PaymentManager.get();
+    const total    = Calculator.calculateTotals(this.items).general;
     if (payments.length && !PaymentManager.validate()) {
       const sum  = payments.reduce((s, p) => s + p.amount, 0);
       const diff = (total - sum).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-      UI.showToast(`⚠️ Pagamentos não fecham o total (diferença: R$ ${diff})`);
+      UI.showToast(`⚠️ Pagamentos não fecham (diferença: R$ ${diff})`);
     }
-
-    // Captura o mercado para estatísticas do dashboard
     const market = document.getElementById('marketInput')?.value.trim() || null;
     Storage.saveNamedList(name, this.items, this.currentListType, purchaseDate, payments, total, market);
     this.currentListName = name;
     this.currentListNameEl.textContent = name;
     UI.hideModal(this.saveModal);
-
-    const payStr    = payments.length ? ' · ' + payments.map(p => _paymentLabel(p.method)).join(' + ') : '';
-    const mktStr    = market ? ` · 🏪 ${market}` : '';
+    const payStr = payments.length ? ' · ' + payments.map(p => _paymentLabel(p.method)).join(' + ') : '';
+    const mktStr = market ? ` · 🏪 ${market}` : '';
     UI.showToast('Lista salva!' + payStr + mktStr);
   }
 
@@ -926,7 +942,7 @@ class ShoppingList {
       });
     };
     if (this.items.length > 0) {
-      UI.setText(this.confirmMsg, 'Criar nova lista? A lista atual será perdida se não for salva.');
+      UI.setText(this.confirmMsg, 'Criar nova lista? A lista atual será perdida.');
       UI.showModal(this.confirmModal);
       this.confirmOk.onclick = () => { UI.hideModal(this.confirmModal); proceed(); UI.showToast('Nova lista criada!'); };
     } else { proceed(); }
@@ -953,7 +969,7 @@ class ShoppingList {
     UI.renderComparisonResults(_compareLists(lists[i1].items, lists[i2].items), lists[i1].name, lists[i2].name);
   }
 
-  // ── RENDERIZAÇÃO DA UI ──────────────────────────────────────────
+  // ── RENDER ────────────────────────────────────────────────────
   render() {
     const filtered = this._getFiltered();
     UI.renderItems(
@@ -996,7 +1012,6 @@ class ShoppingList {
   }
 
   _saveToStorage() { Storage.saveCurrentList(this.items, this.currentListName, this.currentListType); }
-  
   _loadFromStorage() {
     const saved = Storage.loadCurrentList();
     if (!saved) return;
@@ -1014,10 +1029,10 @@ class ShoppingList {
   hideModal(m)        { UI.hideModal(m);             }
 }
 
-// ── INICIALIZAÇÃO DA APLICAÇÃO ───────────────────────────────────
+// ── INICIALIZAÇÃO ───────────────────────────────────────────────
 const app = new ShoppingList();
 
-// Funções globais usadas diretamente no onclick dos botões HTML
+// Funções globais auxiliares (usadas em onclick no HTML, se houver)
 function showModal(id) { const m = document.getElementById(id); if (m) UI.showModal(m); }
 function hideModal(id) { const m = document.getElementById(id); if (m) UI.hideModal(m); }
 function sendFeedback() {
