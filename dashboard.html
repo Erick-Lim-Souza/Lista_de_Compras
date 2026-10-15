@@ -10,6 +10,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<!-- Supabase Client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -252,8 +257,82 @@ document.getElementById('themeBtn').addEventListener('click',()=>{
   rebuild();
 });
 
-/* ── DATA LAYER ─────────────────────────────────────────────── */
-function readData(){try{return JSON.parse(localStorage.getItem('shoppingListData'))||{};}catch{return{}}}
+/* ── DATA LAYER (SUPABASE) ──────────────────────────────────── */
+let globalEvents = [];
+let useDemo = false;
+
+async function fetchSupabaseData() {
+  if (!window.supabaseClient) {
+    console.warn("Cliente Supabase não inicializado.");
+    return [];
+  }
+
+  const { data: { session } } = await window.supabaseClient.auth.getSession();
+  if (!session) {
+    console.warn("Usuário não autenticado no Dashboard.");
+    return [];
+  }
+
+  // Busca listas, itens e pagamentos em uma única query relacional
+  const { data: lists, error } = await window.supabaseClient
+    .from('lists')
+    .select(`
+      *,
+      items:list_items(*),
+      payments(*)
+    `)
+    .eq('user_id', session.user.id)
+    .order('purchase_date', { ascending: false });
+
+  if (error) {
+    console.error("Erro ao buscar dados do Supabase:", error);
+    return [];
+  }
+
+  // Converte os dados do banco para o formato esperado pelos gráficos
+  return lists.map(l => {
+    const economy = (l.items || []).reduce((acc, it) => {
+      const q = parseFloat(it.quantity) || 1;
+      const pw = parseFloat(it.wholesale_price) || 0;
+      const pr = parseFloat(it.retail_price) || 0;
+      if (pw <= 0 || pr <= 0) return acc;
+      const factor = (it.unit === 'g' || it.unit === 'ml') ? q / 1000 : q;
+      return acc + (pr - pw) * factor;
+    }, 0);
+
+    const mappedItems = (l.items || []).map(it => ({
+      name: it.name,
+      quantity: it.quantity,
+      unit: it.unit,
+      category: it.category,
+      priceWholesale: it.wholesale_price,
+      priceRetail: it.retail_price,
+      completed: it.completed
+    }));
+
+    const mappedPayments = (l.payments || []).map(p => ({
+      method: p.method,
+      amount: parseFloat(p.amount) || 0
+    }));
+
+    // Resolve a data: prefere purchase_date, senão usa created_at
+    const dateRaw = l.purchase_date || l.created_at;
+    const dateObj = dateRaw ? new Date(dateRaw) : new Date();
+
+    return {
+      date: dateObj,
+      name: l.name || 'Lista',
+      listType: l.list_type || '—',
+      items: mappedItems,
+      total: parseFloat(l.total) || 0,
+      economy: economy,
+      hasCustomDate: !!l.purchase_date,
+      payments: mappedPayments,
+      market: l.market || null,
+      savedAt: l.created_at
+    };
+  }).sort((a, b) => a.date - b.date);
+}
 
 function itemCost(it){
   let q=parseFloat(it.quantity)||1;
@@ -264,76 +343,6 @@ function itemCost(it){
 }
 
 function listTotal(items){return(items||[]).reduce((a,it)=>a+itemCost(it),0)}
-
-function buildEvents(demo){
-  if(demo)return makeDemo();
-  const d=readData();const ev=[];
-
-  // Resolve the best available date for a list entry
-  // purchaseDate = user explicitly chose via date picker (new field)
-  // date         = legacy field (was the save timestamp in old lists)
-  function resolveDate(l){
-    const raw=l.purchaseDate || l.date || null;
-    return raw ? (d=>isNaN(d)?new Date():d)(new Date(raw)) : new Date();
-  }
-
-  (d.savedLists||[]).forEach(l=>{
-    // Resolve payments[]: prefer new array, migrate old paymentMethod string
-    const lTotal=l.total||listTotal(l.items);
-    const lPay=Array.isArray(l.payments)&&l.payments.length
-      ? l.payments
-      : l.paymentMethod ? [{method:l.paymentMethod,amount:lTotal}] : [];
-    const lEco=(l.items||[]).reduce((acc,it)=>{
-      const q=parseFloat(it.quantity)||1;
-      const pw=parseFloat(it.priceWholesale)||0;
-      const pr=parseFloat(it.priceRetail)||0;
-      if(pw<=0||pr<=0)return acc;
-      const factor=(it.unit==='g'||it.unit==='ml')?q/1000:q;
-      return acc+(pr-pw)*factor;
-    },0);
-    ev.push({
-      date:          resolveDate(l),
-      name:          l.name||'Lista',
-      listType:      l.listType||'—',
-      items:         l.items||[],
-      total:         lTotal,
-      economy:       lEco,
-      hasCustomDate: !!l.purchaseDate,
-      payments:      lPay,
-      market:        l.market||null,
-      savedAt:       l.savedAt||l.date||null,
-    });
-  });
-
-  if((d.currentList?.items||[]).length){
-    const cl=d.currentList;
-    const clTotal=cl.total||listTotal(cl.items);
-    const clPay=Array.isArray(cl.payments)&&cl.payments.length
-      ? cl.payments
-      : cl.paymentMethod ? [{method:cl.paymentMethod,amount:clTotal}] : [];
-    const clEco=(cl.items||[]).reduce((acc,it)=>{
-      const q=parseFloat(it.quantity)||1;
-      const pw=parseFloat(it.priceWholesale)||0;
-      const pr=parseFloat(it.priceRetail)||0;
-      if(pw<=0||pr<=0)return acc;
-      const factor=(it.unit==='g'||it.unit==='ml')?q/1000:q;
-      return acc+(pr-pw)*factor;
-    },0);
-    ev.push({
-      date:          resolveDate(cl),
-      name:          cl.name||'Lista Atual',
-      listType:      cl.listType||'—',
-      items:         cl.items,
-      total:         clTotal,
-      economy:       clEco,
-      hasCustomDate: !!cl.purchaseDate,
-      payments:      clPay,
-      market:        cl.market||null,
-      savedAt:       null,
-    });
-  }
-  return ev.sort((a,b)=>a.date-b.date);
-}
 
 /* ── DEMO DATA ──────────────────────────────────────────────── */
 function makeDemo(){
@@ -358,10 +367,9 @@ function makeDemo(){
     {n:'Aniversário — Compras',t:'Supermercado',mo:5,d:22,it:[['Refrigerante 2L',8,'unidade',9.90,12.50],['Suco',6,'unidade',6.90,8.80],['Salgadinho',10,'pacote',5.90,7.50],['Bolo pronto',2,'unidade',35.90,45.00],['Pão de queijo',3,'pacote',12.90,16.50]]},
   ];
   const now=new Date();const yr=now.getFullYear();
-  return lists.map(({n,t,mo,d,it})=>{
+  return lists.map(({n,t,mo,d,it}, i)=>{
     const date=new Date(yr,mo,d);
     const items=it.map(([name,qty,unit,pw,pr])=>({name,quantity:qty,unit,category:guesscat(name,t),priceWholesale:pw,priceRetail:pr,completed:false}));
-    // Realistic split payments for demo (some single, some split)
     const tot=listTotal(items);
     const DEMO_PAY=[
       [{method:'pix',amount:tot}],
@@ -394,7 +402,7 @@ function guesscat(name,t){
 }
 
 /* ── FILTER ─────────────────────────────────────────────────── */
-let activePer='3m',cfrom=null,cto=null,useDemo=false,activeType='Todos';
+let activePer='3m',cfrom=null,cto=null,activeType='Todos';
 let heatYear=new Date().getFullYear();
 
 function filterEv(ev){
@@ -444,9 +452,8 @@ function countUp(el,end,isMoney=true,ms=650){
    MAIN REBUILD
 ═══════════════════════════════════════════════════════════ */
 function rebuild(){
-  const all=buildEvents(useDemo);
+  const all=globalEvents;
   populateTypeFilter(all);
-  // allTyped: type-filtered but NOT date-filtered — for historical charts (inflation, forecast, heatmap…)
   const allTyped=(activeType&&activeType!=='Todos')?all.filter(e=>e.listType===activeType):all;
   const ev=filterEv(all);
   const d=td();
@@ -594,94 +601,31 @@ function buildDonut(ev,d){
           callbacks:{label:c=>{const tot=c.dataset.data.reduce((a,b)=>a+b,0);return` ${brl(c.raw)} (${((c.raw/tot)*100).toFixed(1)}%)`}}}
       },
       cutout:'62%'
+
     }
   });
 }
 
-/* ── HEATMAP (full year) ────────────────────────────────────── */
-function buildHeat(all){
-  const yr=heatYear;
-  document.getElementById('heatYr').textContent=yr;
-  const byM={};
-  all.forEach(e=>{
-    if(!e.hasCustomDate)return;  // only count lists with explicit purchase date
-    if(e.date.getFullYear()!==yr)return;
-    const k=e.date.getMonth();byM[k]=(byM[k]||0)+e.total;
-  });
-  const vs=Object.values(byM);const mx=vs.length?Math.max(...vs):1;
-  const dark=document.documentElement.getAttribute('data-theme')==='dark';
-  const row=document.getElementById('heatEl');row.innerHTML='';
-  MOS.forEach((mo,i)=>{
-    const v=byM[i]||0;const p=mx>0?v/mx:0;
-    const a=v>0?0.12+p*0.80:0;
-    const bg=v>0?`rgba(0,196,140,${a.toFixed(2)})`:dark?'rgba(255,255,255,.03)':'rgba(0,0,0,.03)';
-    const col=p>0.62?'#000':v>0?'#00C48C':'var(--tx3)';
-    const c=document.createElement('div');c.className='hcell';c.style.background=bg;
-    c.title=`${mo} ${yr}: ${brl(v)}`;
-    const hm=document.createElement('div');hm.className='hm';hm.textContent=mo;
-    const hv=document.createElement('div');hv.className='hv';hv.style.color=col;hv.textContent=v>0?brlS(v):'—';
-    c.appendChild(hm);c.appendChild(hv);row.appendChild(c);
-  });
-}
-
-/* ── TIMELINE ───────────────────────────────────────────────── */
-function buildTimeline(ev){
-  const g=document.getElementById('tlEl');g.innerHTML='';
-  if(!ev.length){g.innerHTML='<div class="nd" style="grid-column:1/-1"><span class="ndi">📋</span>Nenhuma lista encontrada no período</div>';return;}
-  [...ev].sort((a,b)=>b.date-a.date).forEach(e=>{
-    const c=document.createElement('div');c.className='tlcard';
-
-    // date badge — green if explicitly set by user, grey if auto/fallback
-    const dt=document.createElement('div');dt.className='tl-dt';
-    const dateLabel=e.date.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
-    dt.innerHTML='';
-    const dtIcon=document.createElement('span');
-    dtIcon.textContent='📅 ';
-    dtIcon.style.cssText='opacity:.7;font-size:.7rem';
-    const dtTxt=document.createTextNode(dateLabel);
-    dt.appendChild(dtIcon);dt.appendChild(dtTxt);
-    if(!e.hasCustomDate){
-      const warn=document.createElement('span');
-      warn.textContent=' (auto)';
-      warn.style.cssText='color:var(--warn);font-size:.55rem;opacity:.7';
-      warn.title='Data definida automaticamente. Edite no Histórico para corrigir.';
-      dt.appendChild(warn);
-    }
-
-    const nm=document.createElement('div');nm.className='tl-nm';nm.textContent=e.name;
-    const vl=document.createElement('div');vl.className='tl-vl';vl.textContent=brl(e.total);
-    const ty=document.createElement('div');ty.className='tl-ty';
-    const PAY_ICO={dinheiro:'💵',pix:'⚡',cartao_credito:'💳 Cré',cartao_debito:'💳 Déb',vale_alimentacao:'🥗',vale_refeicao:'🍽️',outro:'📌'};
-    const pmts=e.payments||[];
-    const payStr=pmts.length
-      ? pmts.map(p=>(PAY_ICO[p.method]||'💳')+' R$'+p.amount.toFixed(0)).join(' + ')
-      : '';
-    const mktStr=e.market?' · 🏪 '+e.market:'';
-    ty.textContent=e.listType+' · '+(e.items||[]).length+' itens'+(payStr?' · '+payStr:'')+mktStr;
-    c.appendChild(dt);c.appendChild(nm);c.appendChild(vl);c.appendChild(ty);g.appendChild(c);
-  });
-}
-
-/* ── PAYMENT DONUT ──────────────────────────────────────────── */
+/* ── PAYMENT DONUT (Por Forma de Pagamento) ─────────────────── */
 function buildPaymentDonut(ev,d){
   CP?.destroy();
   const el=document.getElementById('cPayment');
-  if(!el)return;
-  const byP={};
+  const bP={};
   ev.forEach(e=>(e.payments||[]).forEach(p=>{
-    if(p.method&&p.amount>0)byP[p.method]=(byP[p.method]||0)+p.amount;
+    if(p.amount>0) bP[p.method]=(bP[p.method]||0)+p.amount;
   }));
-  const methods=Object.keys(byP).sort((a,b)=>byP[b]-byP[a]);
-  if(!methods.length){
-    const noPay=ev.filter(e=>!(e.payments||[]).length).length;
-    el.parentElement.innerHTML=`<div class="nd"><span class="ndi">💳</span>${noPay} lista(s) sem pagamento registrado. <br>Edite no Histórico para adicionar.</div>`;
-    return;
-  }
+  const pays=Object.keys(bP).sort((a,b)=>bP[b]-bP[a]);
+  if(!pays.length){el.parentElement.innerHTML='<div class="nd"><span class="ndi">💳</span>Sem dados de pagamento</div>';return;}
+
   CP=new Chart(el.getContext('2d'),{
     type:'doughnut',
     data:{
-      labels:methods.map(m=>PAY_LABELS[m]||m),
-      datasets:[{data:methods.map(m=>+byP[m].toFixed(2)),backgroundColor:methods.map(m=>PAY_COLORS[m]||'#94A3B8'),borderColor:d.bg,borderWidth:3,hoverOffset:10}]
+      labels:pays.map(p=>PAY_LABELS[p]||p),
+      datasets:[{
+        data:pays.map(p=>+bP[p].toFixed(2)),
+        backgroundColor:pays.map(p=>PAY_COLORS[p]||'#94A3B8'),
+        borderColor:d.bg,borderWidth:3,hoverOffset:10
+      }]
     },
     options:{
       responsive:true,maintainAspectRatio:false,
@@ -695,131 +639,68 @@ function buildPaymentDonut(ev,d){
   });
 }
 
-/* ── PAYMENT AVG BAR ─────────────────────────────────────────── */
+/* ── PAYMENT AVG (Ticket Médio por Pagamento) ───────────────── */
 function buildPaymentAvg(ev,d){
   CAP?.destroy();
   const el=document.getElementById('cAvgPayment');
-  if(!el)return;
-  const byP={};
-  ev.forEach(e=>(e.payments||[]).forEach(p=>{
-    if(!p.method||!p.amount)return;
-    if(!byP[p.method])byP[p.method]={total:0,count:0};
-    byP[p.method].total+=p.amount;byP[p.method].count+=1;
-  }));
-  const methods=Object.keys(byP).sort((a,b)=>byP[b].total/byP[b].count-byP[a].total/byP[a].count);
-  if(!methods.length){
-    el.parentElement.innerHTML='<div class="nd"><span class="ndi">📊</span>Sem formas de pagamento registradas</div>';
-    return;
-  }
-  const avgs=methods.map(m=>+(byP[m].total/byP[m].count).toFixed(2));
-  const cnts=methods.map(m=>byP[m].count);
+  const bP={}; const cP={};
+  ev.forEach(e=>{
+    const pays=e.payments||[];
+    if(pays.length===1){
+      const m=pays[0].method;
+      bP[m]=(bP[m]||0)+e.total;
+      cP[m]=(cP[m]||0)+1;
+    }
+  });
+  const pays=Object.keys(bP).filter(k=>cP[k]>0).sort((a,b)=>(bP[b]/cP[b])-(bP[a]/cP[a]));
+  if(!pays.length){el.parentElement.innerHTML='<div class="nd"><span class="ndi">📊</span>Sem pagamentos únicos suficientes</div>';return;}
+
+  const vals=pays.map(p=>+(bP[p]/cP[p]).toFixed(2));
   CAP=new Chart(el.getContext('2d'),{
     type:'bar',
     data:{
-      labels:methods.map(m=>PAY_LABELS[m]||m),
-      datasets:[{label:'Ticket médio',data:avgs,backgroundColor:methods.map(m=>(PAY_COLORS[m]||'#94A3B8')+'CC'),borderColor:methods.map(m=>PAY_COLORS[m]||'#94A3B8'),borderWidth:1,borderRadius:7,borderSkipped:false}]
+      labels:pays.map(p=>PAY_LABELS[p]||p),
+      datasets:[{
+        label:'Ticket Médio',data:vals,
+        backgroundColor:pays.map(p=>PAY_COLORS[p]||'#94A3B8'),
+        borderRadius:6
+      }]
     },
     options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      responsive:true,maintainAspectRatio:false,
       plugins:{
         legend:{display:false},
-        tooltip:{backgroundColor:d.bg,titleColor:d.txt,bodyColor:d.lbl,borderColor:cssv('--ln2'),borderWidth:1,padding:10,
-          callbacks:{label:c=>' Ticket médio: '+brl(c.raw),afterLabel:c=>' '+cnts[c.dataIndex]+' lista(s)'}}
+        tooltip:{backgroundColor:d.bg,titleColor:d.txt,bodyColor:d.lbl,borderColor:cssv('--ln2'),borderWidth:1,callbacks:{label:c=>' '+brl(c.raw)}}
       },
       scales:{
-        x:{grid:{color:d.grid},ticks:{color:d.tick,font:{family:"'JetBrains Mono'",size:10},callback:v=>brlS(v)}},
-        y:{grid:{display:false},ticks:{color:d.tick,font:{family:"'JetBrains Mono'",size:9}}}
+        x:{grid:{display:false},ticks:{color:d.tick,font:{family:"'JetBrains Mono'",size:10}}},
+        y:{grid:{color:d.grid},ticks:{color:d.tick,font:{family:"'JetBrains Mono'",size:10},callback:v=>brlS(v)},beginAtZero:true}
       }
     }
   });
 }
 
-/* ── MARKET ECONOMY RANKING ─────────────────────────────────── */
-function buildMarketEconomy(ev){
-  const container=document.getElementById('marketEconomyEl');
-  if(!container)return;
-
-  const me={};
-  ev.forEach(e=>{
-    const m=e.market||null;
-    if(!m)return;
-    if(!me[m])me[m]={economy:0,total:0,lists:0};
-    me[m].economy+=(e.economy||0);
-    me[m].total+=e.total;
-    me[m].lists+=1;
-  });
-
-  const sorted=Object.entries(me)
-    .map(([name,data])=>({name,...data}))
-    .sort((a,b)=>b.economy-a.economy);
-
-  if(!sorted.length||sorted.every(s=>s.economy<=0)){
-    // Fallback: rank by total spending when no economy data
-    const byTotal=Object.entries(me).map(([name,data])=>({name,...data})).sort((a,b)=>b.total-a.total);
-    if(!byTotal.length){
-      container.innerHTML='<div class="nd"><span class="ndi">🏪</span>Sem dados de mercado no período. Preencha o campo "Mercado" ao salvar.</div>';
-      return;
-    }
-    _renderMarketRank(container,byTotal,'total','💰 Total Gasto');
-    return;
-  }
-  _renderMarketRank(container,sorted,'economy','💰 Economia Acumulada');
-}
-
-function _renderMarketRank(container,sorted,field,fieldLabel){
-  const max=sorted[0][field];
-  let html='<div class="mkt-rank-list">';
-  sorted.forEach((s,i)=>{
-    const pct=max>0?Math.round((s[field]/max)*100):0;
-    const valueStr=brl(s[field]);
-    const totalStr=field!=='total'?`<span class="mkt-rank-note"> · total ${brl(s.total)}</span>`:'';
-    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-    html+=`
-      <div class="mkt-rank-item">
-        <div class="mkt-rank-header">
-          <span class="mkt-rank-name">${medal} ${s.name}</span>
-          <span class="mkt-rank-value">${valueStr}${totalStr}</span>
-        </div>
-        <div class="mkt-rank-bar-row">
-          <div class="mkt-rank-bar-bg">
-            <div class="mkt-rank-bar-fill" style="width:${pct}%"></div>
-          </div>
-          <span class="mkt-rank-count">${s.lists} lista${s.lists!==1?'s':''}</span>
-        </div>
-      </div>`;
-  });
-  container.innerHTML=html+'</div>';
-}
-
-/* ── MARKET DONUT ───────────────────────────────────────────── */
+/* ── MARKET DONUT (Gasto por Mercado) ───────────────────────── */
 function buildMarketDonut(ev,d){
   CM?.destroy();
-  const wrap=document.getElementById('cMarketWrap');
   const el=document.getElementById('cMarket');
-  if(!el)return;
-
-  const byM={};
-  ev.forEach(e=>{ const m=e.market||null; if(m) byM[m]=(byM[m]||0)+e.total; });
-  const markets=Object.keys(byM).sort((a,b)=>byM[b]-byM[a]);
-
-  if(!markets.length){
-    const noMkt=ev.filter(e=>!e.market).length;
-    wrap.innerHTML=`<div class="nd"><span class="ndi">🏪</span>${noMkt} lista(s) sem mercado registrado.<br>Preencha o campo "Mercado" ao salvar.`;
+  const bM={};
+  ev.forEach(e=>{
+    if(e.market&&e.total>0) bM[e.market]=(bM[e.market]||0)+e.total;
+  });
+  const mkts=Object.keys(bM).sort((a,b)=>bM[b]-bM[a]);
+  if(!mkts.length){
+    document.getElementById('cMarketWrap').innerHTML='<div class="nd"><span class="ndi">🏪</span>Sem mercados informados</div>';
     return;
   }
 
-  // rebuild canvas if wrap was replaced
-  if(!document.getElementById('cMarket')){
-    const c=document.createElement('canvas');c.id='cMarket';wrap.appendChild(c);
-  }
-
-  CM=new Chart(document.getElementById('cMarket').getContext('2d'),{
+  CM=new Chart(el.getContext('2d'),{
     type:'doughnut',
     data:{
-      labels:markets,
+      labels:mkts,
       datasets:[{
-        data:markets.map(m=>+byM[m].toFixed(2)),
-        backgroundColor:markets.map((_,i)=>PAL[i%PAL.length]),
+        data:mkts.map(m=>+bM[m].toFixed(2)),
+        backgroundColor:mkts.map((_,i)=>PAL[(i+3)%PAL.length]),
         borderColor:d.bg,borderWidth:3,hoverOffset:10
       }]
     },
@@ -830,417 +711,357 @@ function buildMarketDonut(ev,d){
         tooltip:{backgroundColor:d.bg,titleColor:d.txt,bodyColor:d.lbl,borderColor:cssv('--ln2'),borderWidth:1,
           callbacks:{label:c=>{const tot=c.dataset.data.reduce((a,b)=>a+b,0);return` ${brl(c.raw)} (${((c.raw/tot)*100).toFixed(1)}%)`}}}
       },
-      cutout:'60%'
+      cutout:'62%'
     }
   });
 }
 
-/* ── BASKET INFLATION ────────────────────────────────────────── */
-function buildInflation(all,d){
+/* ── MARKET ECONOMY RANKING (Economia por Mercado) ──────────── */
+function buildMarketEconomy(ev){
+  const el=document.getElementById('marketEconomyEl');
+  const bM={};
+  ev.forEach(e=>{
+    if(e.market&&e.economy>0) bM[e.market]=(bM[e.market]||0)+e.economy;
+  });
+  const mkts=Object.keys(bM).sort((a,b)=>bM[b]-bM[a]).slice(0,5);
+  if(!mkts.length){el.innerHTML='<div class="nd"><span class="ndi">💰</span>Sem dados de economia (varejo vs atacado)</div>';return;}
+
+  let h='<div style="display:flex;flex-direction:column;gap:12px;padding-top:8px">';
+  const max=bM[mkts[0]];
+  mkts.forEach((m,i)=>{
+    const v=bM[m]; const pct=(v/max)*100;
+    h+=`<div style="display:flex;align-items:center;gap:12px">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:var(--tx2)">${i+1}</div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px"><span style="font-weight:500">${m}</span><span style="color:#10B981;font-weight:600">+${brl(v)}</span></div>
+            <div style="height:6px;background:var(--ln2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#10B981;border-radius:3px"></div></div>
+          </div>
+        </div>`;
+  });
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+/* ── INFLATION (Evolução do Gasto Médio) ────────────────────── */
+function buildInflation(allTyped,d){
   CI?.destroy();
   const el=document.getElementById('cInflation');
-  if(!el)return;
-
-  // Group ALL lists by month-year key, compute avg spend per month
-  const byM={};
-  all.forEach(e=>{
+  const byM={}; const cM={};
+  allTyped.forEach(e=>{
     const k=mkey(e.date);
-    if(!byM[k])byM[k]={total:0,count:0};
-    byM[k].total+=e.total;
-    byM[k].count+=1;
+    byM[k]=(byM[k]||0)+e.total;
+    cM[k]=(cM[k]||0)+1;
   });
-
   const keys=Object.keys(byM).sort();
-  if(keys.length<2){
-    el.parentElement.innerHTML='<div class="nd"><span class="ndi">📈</span>Salve listas em pelo menos 2 meses diferentes para ver a inflação</div>';
-    return;
-  }
+  if(keys.length<2){el.parentElement.innerHTML='<div class="nd"><span class="ndi">📈</span>Mínimo de 2 meses necessários</div>';return;}
 
-  const avgs=keys.map(k=>+(byM[k].total/byM[k].count).toFixed(2));
+  const vals=keys.map(k=>+(byM[k]/cM[k]).toFixed(2));
+  const ctx=el.getContext('2d');
+  const g=ctx.createLinearGradient(0,0,0,200);
+  g.addColorStop(0,'rgba(248,113,113,.3)');g.addColorStop(1,'rgba(248,113,113,.0)');
 
-  // Compute % change vs first month
-  const base=avgs[0];
-  const pcts=avgs.map(v=>+((v-base)/base*100).toFixed(1));
-
-  // Color: green = below base, red = above
-  const lineColor=avgs[avgs.length-1]>=base?'rgba(255,99,132,1)':'rgba(0,196,140,1)';
-  const fillColor=avgs[avgs.length-1]>=base?'rgba(255,99,132,.1)':'rgba(0,196,140,.1)';
-
-  CI=new Chart(el.getContext('2d'),{
+  CI=new Chart(ctx,{
     type:'line',
     data:{
       labels:keys.map(mlbl),
-      datasets:[
-        {
-          label:'Gasto médio/mês',
-          data:avgs,
-          borderColor:lineColor,
-          backgroundColor:fillColor,
-          borderWidth:2.5,
-          pointRadius:4,pointHoverRadius:7,
-          fill:true,tension:.3,
-          yAxisID:'yVal',
-        },
-        {
-          label:'Variação vs 1º mês',
-          data:pcts,
-          borderColor:'rgba(129,140,248,.7)',
-          borderWidth:1.5,
-          borderDash:[4,3],
-          pointRadius:2,
-          fill:false,tension:.3,
-          yAxisID:'yPct',
-        }
-      ]
+      datasets:[{
+        label:'Gasto Médio por Lista',data:vals,
+        borderColor:'#F87171',backgroundColor:g,
+        borderWidth:2,tension:0.3,fill:true,
+        pointBackgroundColor:'#F87171',pointRadius:4
+      }]
     },
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{
-        legend:{labels:{color:d.lbl,font:{family:"'JetBrains Mono'",size:9},boxWidth:10,padding:14}},
-        tooltip:{
-          backgroundColor:d.bg,titleColor:d.txt,bodyColor:d.lbl,
-          borderColor:cssv('--ln2'),borderWidth:1,padding:10,
+        legend:{display:false},
+        tooltip:{backgroundColor:d.bg,titleColor:d.txt,bodyColor:d.lbl,borderColor:cssv('--ln2'),borderWidth:1,
           callbacks:{
-            title:items=>mlbl(keys[items[0].dataIndex]),
-            afterBody:items=>{
-              const i=items[0].dataIndex;
-              if(i===0)return['Referência: primeiro mês'];
-              const sign=pcts[i]>=0?'+':'';
-              return[`Variação: ${sign}${pcts[i]}% vs primeiro mês`];
+            label:c=>' Média: '+brl(c.raw),
+            afterLabel:c=>{
+              if(c.dataIndex===0)return'';
+              const prev=vals[c.dataIndex-1];
+              const pct=((c.raw-prev)/prev)*100;
+              return ` Inflação: ${pct>0?'↑ +':'↓ '}${Math.abs(pct).toFixed(1)}%`;
             }
           }
-        },
-        annotation:{}
+        }
       },
       scales:{
-        x:{grid:{color:d.grid},ticks:{color:d.tick,font:{family:"'JetBrains Mono'",size:10}}},
-        yVal:{grid:{color:d.grid,lineWidth:.8},position:'left',ticks:{color:d.tick,font:{family:"'JetBrains Mono'",size:10},callback:v=>brlS(v)},beginAtZero:false},
-        yPct:{grid:{display:false},position:'right',ticks:{color:'rgba(129,140,248,.7)',font:{family:"'JetBrains Mono'",size:9},callback:v=>(v>0?'+':'')+v+'%'},beginAtZero:false},
+        x:{grid:{display:false},ticks:{color:d.tick,font:{family:"'JetBrains Mono'",size:10}}},
+        y:{grid:{color:d.grid},ticks:{color:d.tick,font:{family:"'JetBrains Mono'",size:10},callback:v=>brlS(v)}}
       }
     }
   });
 }
 
-/* ── SPENDING FORECAST ───────────────────────────────────────── */
-function buildForecast(all,d){
+/* ── FORECAST (Previsão do Próximo Mês) ─────────────────────── */
+function buildForecast(allTyped,d){
   const el=document.getElementById('fcastEl');
-  if(!el)return;
-
-  // Monthly totals from all data
   const byM={};
-  all.forEach(e=>{
-    const k=mkey(e.date);
-    byM[k]=(byM[k]||0)+e.total;
-  });
-
+  allTyped.forEach(e=>{const k=mkey(e.date);byM[k]=(byM[k]||0)+e.total});
   const keys=Object.keys(byM).sort();
-  if(keys.length<2){
-    el.innerHTML='<div class="nd" style="min-height:100px"><span class="ndi">🔮</span>Poucos dados — salve mais listas para gerar previsão</div>';
-    return;
-  }
+  if(keys.length<3){el.innerHTML='<div class="nd"><span class="ndi">🔮</span>Mínimo de 3 meses para previsão</div>';return;}
 
-  const vals=keys.map(k=>byM[k]);
+  const last3=keys.slice(-3).map(k=>byM[k]);
+  const avg=last3.reduce((a,b)=>a+b,0)/3;
+  const last=last3[2];
+  const diff=avg-last;
+  const pct=last>0?(Math.abs(diff)/last)*100:0;
 
-  // Simple weighted moving average: last 3 months (more recent = more weight)
-  const window=Math.min(3,vals.length);
-  const recent=vals.slice(-window);
-  const weights=recent.map((_,i)=>i+1);  // [1,2,3] for window=3
-  const sumW=weights.reduce((a,b)=>a+b,0);
-  const forecast=recent.reduce((sum,v,i)=>sum+v*weights[i],0)/sumW;
+  let icon,color,msg;
+  if(diff>0){icon='↑';color='#F87171';msg=`Tendência de alta (+${pct.toFixed(1)}%)`;}
+  else{icon='↓';color='#10B981';msg=`Tendência de queda (-${pct.toFixed(1)}%)`;}
 
-  // Last real month
-  const lastKey=keys[keys.length-1];
-  const lastVal=vals[vals.length-1];
-  const diff=forecast-lastVal;
-  const diffPct=((diff/lastVal)*100).toFixed(1);
-
-  // Next month label
-  const [ly,lm]=lastKey.split('-').map(Number);
-  const nm=lm===12?1:lm+1;
-  const ny=lm===12?ly+1:ly;
-  const MONTHS_BR=['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const nextLabel=MONTHS_BR[nm]+'/'+ny;
-
-  // Confidence: higher with more data points
-  const confidence=keys.length>=6?'Alta':keys.length>=4?'Média':'Baixa';
-  const confColor=confidence==='Alta'?'#00C48C':confidence==='Média'?'#FBBF24':'#FF6385';
-
-  // Overall trend arrow
-  const trend=vals.length>=2?(vals[vals.length-1]>vals[0]?'↑':'↓'):'→';
-  const trendColor=trend==='↑'?'#FF6385':'#00C48C';
-
-  el.innerHTML='';
-
-  // Main forecast number
-  const bigNum=document.createElement('div');
-  bigNum.style.cssText='font-family:var(--mono);font-size:2.2rem;font-weight:700;color:var(--ac);margin-bottom:4px;line-height:1';
-  bigNum.textContent=brl(forecast);
-  el.appendChild(bigNum);
-
-  const sub=document.createElement('div');
-  sub.style.cssText='font-family:var(--mono);font-size:.7rem;color:var(--tx3);margin-bottom:16px';
-  sub.textContent='estimativa para '+nextLabel;
-  el.appendChild(sub);
-
-  // Stat rows
-  const stats=[
-    {label:'Tendência geral',value:trend+' '+Math.abs(diffPct)+'% vs mês atual',color:trendColor},
-    {label:'Confiança',value:confidence,color:confColor},
-    {label:'Baseado em',value:window+' mes(es) recente(s)','color':d.lbl},
-  ];
-
-  // Micro bar: last 3 months + forecast
-  const barsData=[...recent.map((v,i)=>({v,label:mlbl(keys[keys.length-window+i]),fcast:false})),{v:forecast,label:nextLabel,fcast:true}];
-  const barsMax=Math.max(...barsData.map(b=>b.v));
-
-  const barWrap=document.createElement('div');
-  barWrap.style.cssText='display:flex;align-items:flex-end;gap:6px;height:56px;margin-bottom:12px';
-  barsData.forEach(b=>{
-    const col=document.createElement('div');col.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;gap:3px';
-    const bar=document.createElement('div');
-    bar.style.cssText=`height:${Math.round((b.v/barsMax)*44)+8}px;width:100%;border-radius:3px 3px 0 0;background:${b.fcast?'rgba(251,191,36,.7)':'rgba(0,196,140,.45)'};border:1px solid ${b.fcast?'#FBBF24':'rgba(0,196,140,.7)'};transition:height .4s`;
-    if(b.fcast)bar.style.borderStyle='dashed';
-    const lbl=document.createElement('div');
-    lbl.style.cssText=`font-family:var(--mono);font-size:.48rem;color:${b.fcast?'#FBBF24':'var(--tx3)'};text-align:center;white-space:nowrap`;
-    lbl.textContent=b.label;
-    col.appendChild(bar);col.appendChild(lbl);
-    barWrap.appendChild(col);
-  });
-  el.appendChild(barWrap);
-
-  stats.forEach(s=>{
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--ln2)';
-    const lbl=document.createElement('span');lbl.style.cssText='font-family:var(--mono);font-size:.62rem;color:var(--tx3)';lbl.textContent=s.label;
-    const val=document.createElement('span');val.style.cssText=`font-family:var(--mono);font-size:.68rem;font-weight:600;color:${s.color}`;val.textContent=s.value;
-    row.appendChild(lbl);row.appendChild(val);
-    el.appendChild(row);
-  });
+  el.innerHTML=`
+    <div style="font-size:24px;font-weight:700;color:var(--tx);margin-bottom:4px">${brl(avg)}</div>
+    <div style="font-size:13px;color:${color};font-weight:600;display:flex;align-items:center;gap:4px">
+      <span>${icon}</span><span>${msg} vs último mês</span>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--tx3);line-height:1.4">
+      Baseado na média dos últimos 3 meses (${keys.slice(-3).map(mlbl).join(', ')}).
+    </div>
+  `;
 }
 
-/* ── PRICE EVOLUTION (per product) ───────────────────────────── */
-function buildPriceEvolution(all,d){
+/* ── PRICE EVOLUTION (Evolução de Preço dos Produtos) ───────── */
+function buildPriceEvolution(allTyped,d){
   const el=document.getElementById('priceEvEl');
-  if(!el)return;
-
-  // Gather unit prices per product across all time
-  const prods={};
-  all.forEach(e=>{
+  const pMap={};
+  allTyped.forEach(e=>{
+    const k=mkey(e.date);
     (e.items||[]).forEach(it=>{
-      if(!it.name)return;
-      const price=it.priceWholesale>0?it.priceWholesale:(it.priceRetail||0);
-      if(!price)return;
-      const key=it.name.toLowerCase().trim();
-      if(!prods[key])prods[key]={name:it.name,prices:[]};
-      prods[key].prices.push({date:e.date,price});
+      const p=parseFloat(it.priceWholesale)>0?parseFloat(it.priceWholesale):parseFloat(it.priceRetail);
+      if(p>0){
+        const n=it.name.trim().toUpperCase();
+        if(!pMap[n]) pMap[n]={};
+        if(!pMap[n][k]) pMap[n][k]={s:0,c:0};
+        pMap[n][k].s+=p; pMap[n][k].c+=1;
+      }
     });
   });
 
-  // Keep only products with >= 2 data points (so we can show a trend)
-  const candidates=Object.values(prods)
-    .filter(p=>p.prices.length>=2)
-    .map(p=>{
-      const sorted=p.prices.sort((a,b)=>a.date-b.date);
-      const first=sorted[0].price;
-      const last=sorted[sorted.length-1].price;
-      const change=((last-first)/first*100);
-      return{...p,first,last,change,sorted};
-    })
-    .sort((a,b)=>Math.abs(b.change)-Math.abs(a.change))   // biggest movers first
-    .slice(0,8);
-
-  if(!candidates.length){
-    el.innerHTML='<div class="nd" style="min-height:80px"><span class="ndi">📊</span>Adicione preços aos itens em múltiplas listas para ver a evolução</div>';
-    return;
-  }
-
-  el.innerHTML='';
-  const list=document.createElement('div');
-  list.style.cssText='display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:4px';
-
-  candidates.forEach(p=>{
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--ln2)';
-
-    const up=p.change>1;
-    const dn=p.change<-1;
-    const arrow=up?'↑':dn?'↓':'→';
-    const color=up?'#FF6385':dn?'#00C48C':'#94A3B8';
-
-    const trendBadge=document.createElement('span');
-    trendBadge.style.cssText=`font-family:var(--mono);font-size:.9rem;color:${color};min-width:16px;text-align:center`;
-    trendBadge.textContent=arrow;
-
-    const nameDiv=document.createElement('div');
-    nameDiv.style.cssText='flex:1;overflow:hidden';
-    const nm=document.createElement('div');nm.style.cssText='font-family:var(--mono);font-size:.7rem;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis';nm.textContent=p.name;
-    const pts=document.createElement('div');pts.style.cssText='font-family:var(--mono);font-size:.55rem;color:var(--tx3)';pts.textContent=p.sorted.length+' registros';
-    nameDiv.appendChild(nm);nameDiv.appendChild(pts);
-
-    const priceDiv=document.createElement('div');
-    priceDiv.style.cssText='text-align:right;white-space:nowrap';
-    const cur=document.createElement('div');cur.style.cssText=`font-family:var(--mono);font-size:.75rem;font-weight:700;color:${color}`;cur.textContent=brl(p.last);
-    const delta=document.createElement('div');
-    delta.style.cssText=`font-family:var(--mono);font-size:.56rem;color:${color}`;
-    const sign=p.change>=0?'+':'';
-    delta.textContent=sign+p.change.toFixed(1)+'% vs início';
-    priceDiv.appendChild(cur);priceDiv.appendChild(delta);
-
-    row.appendChild(trendBadge);row.appendChild(nameDiv);row.appendChild(priceDiv);
-    list.appendChild(row);
-  });
-
-  el.appendChild(list);
-}
-
-/* ── TOP PRODUCTS ───────────────────────────────────────────── */
-function buildTop(ev){
-  const bp={};
-  ev.forEach(e=>(e.items||[]).forEach(it=>{
-    const t=itemCost(it);if(!t)return;
-    // normalise quantity to display unit (g→kg, ml→L)
-    let q=parseFloat(it.quantity)||1;
-    let u=it.unit||'un';
-    if(u==='g'){q/=1000;u='kg';}
-    else if(u==='ml'){q/=1000;u='L';}
-    const key=it.name;
-    if(!bp[key])bp[key]={total:0,totalQty:0,unit:u,cat:it.category,listas:0};
-    bp[key].total   +=t;
-    bp[key].totalQty+=q;
-    bp[key].listas  +=1;
-  }));
-  const sorted=Object.entries(bp).map(([n,v])=>({name:n,...v})).sort((a,b)=>b.total-a.total).slice(0,12);
-  const w=document.getElementById('topEl');
-  if(!sorted.length){w.innerHTML='<div class="nd"><span class="ndi">📦</span>Adicione preços aos itens para ver o ranking</div>';return;}
-  const mx=sorted[0].total;
-
-  // Format quantity: trim trailing zeros, keep up to 3 decimal places
-  function fmtQty(q,u){
-    const s=q%1===0?q.toFixed(0):q.toFixed(3).replace(/\.?0+$/,'');
-    return s+' '+u;
-  }
-
-  const tbl=document.createElement('table');tbl.className='ptbl';
-  const hd=tbl.createTHead().insertRow();
-  ['#','Produto','Qtd. total','Distribuição','Total gasto'].forEach(h=>{const t=document.createElement('th');t.textContent=h;hd.appendChild(t)});
-  const tb=tbl.createTBody();
-  sorted.forEach((p,i)=>{
-    const pct=Math.round((p.total/mx)*100);const tr=tb.insertRow();
-    const rn=tr.insertCell();rn.className='rn'+(i===0?' g':i===1?' s':i===2?' b':'');rn.textContent=`#${i+1}`;
-    const nc=tr.insertCell();
-    const dn=document.createElement('div');dn.className='pnm';dn.textContent=p.name;
-    const dc=document.createElement('div');dc.className='pcat';dc.textContent=p.cat+' · '+p.listas+' lista(s)';
-    nc.appendChild(dn);nc.appendChild(dc);
-    const cc=tr.insertCell();cc.className='pcnt';
-    cc.style.cssText='font-family:var(--mono);font-size:.75rem;color:var(--ac);white-space:nowrap;';
-    cc.textContent=fmtQty(p.totalQty,p.unit);
-    const bc=tr.insertCell();
-    bc.innerHTML=`<div class="bwrap"><div class="bbg"><div class="bfil" style="width:${pct}%"></div></div><span class="bpct">${pct}%</span></div>`;
-    const pc=tr.insertCell();pc.className='ppr';pc.textContent=brl(p.total);
-  });
-  w.innerHTML='';w.appendChild(tbl);
-}
-
-/* ── EVENTS ─────────────────────────────────────────────────── */
-document.getElementById('tabsEl').addEventListener('click',e=>{
-  const b=e.target.closest('.tab');if(!b)return;
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');activePer=b.dataset.p;cfrom=cto=null;rebuild();
-});
-document.getElementById('applyBtn').addEventListener('click',()=>{
-  const fv=document.getElementById('dfrom').value;
-  const tv=document.getElementById('dto').value;
-  if(!fv||!tv)return;
-  cfrom=new Date(fv+'T00:00:00');cto=new Date(tv+'T23:59:59');
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  rebuild();
-});
-
-/* ── TYPE FILTER ─────────────────────────────────────────────── */
-document.getElementById('typeFilter').addEventListener('change', e => {
-  activeType = e.target.value;
-  rebuild();
-});
-
-function populateTypeFilter(allEvents) {
-  const sel = document.getElementById('typeFilter');
-  if (!sel) return;
-  // Collect unique types from ALL events (not filtered by date or type)
-  const types = [...new Set(
-    allEvents.map(e => e.listType).filter(t => t && t !== '—')
-  )].sort();
-  const icons = {'Supermercado':'🛒','Feira Livre':'🥕','Açougue':'🍖',
-    'Farmácia':'💊','Roupas':'👕','Eletrônicos':'📱','Casa e Jardim':'🏠'};
-  sel.innerHTML = '<option value="Todos">📋 Todos</option>' +
-    types.map(t => `<option value="${t}">${icons[t]||'📋'} ${t}</option>`).join('');
-  // Sync DOM to JS state (activeType is the source of truth)
-  const validValues = ['Todos', ...types];
-  if (!validValues.includes(activeType)) activeType = 'Todos';
-  sel.value = activeType;
-  sel.classList.toggle('filtered', activeType !== 'Todos');
-}
-
-/* ── YEAR NAV ────────────────────────────────────────────────── */
-document.getElementById('heatPrev').addEventListener('click',()=>{
-  heatYear--;
-  document.getElementById('heatPrev').style.opacity='1';
-  const all=buildEvents(useDemo);
-  buildHeat(all);
-});
-document.getElementById('heatNext').addEventListener('click',()=>{
-  heatYear++;
-  const all=buildEvents(useDemo);
-  buildHeat(all);
-});
-
-/* ── INIT ────────────────────────────────────────────────────── */
-(function(){
-  const now=new Date();
-  const d=readData();
-  const hasReal=((d.savedLists||[]).length>0)||((d.currentList?.items||[]).length>0);
-  if(!hasReal){useDemo=true;document.getElementById('demoTag').style.display=''}
-
-  // Auto-detect earliest list date to set smart default range
-  const all=buildEvents(useDemo);
-  if(all.length){
-    const oldest=all[0].date;
-    const daySpan=(now-oldest)/(864e5);
-    // If oldest data is within 3 months, keep 3M; otherwise widen to show all
-    if(daySpan>95){
-      activePer='all';
-      document.querySelectorAll('.tab').forEach(b=>{
-        b.classList.toggle('active', b.dataset.p==='all');
-      });
+  const valid=[];
+  Object.keys(pMap).forEach(n=>{
+    const keys=Object.keys(pMap[n]).sort();
+    if(keys.length>=3){
+      const first=pMap[n][keys[0]].s/pMap[n][keys[0]].c;
+      const last=pMap[n][keys[keys.length-1]].s/pMap[n][keys[keys.length-1]].c;
+      valid.push({name:n, keys, data:pMap[n], var:((last-first)/first)*100});
     }
-    // Set date inputs to full range
-    document.getElementById('dfrom').value=oldest.toISOString().slice(0,10);
-    document.getElementById('dto').value=now.toISOString().slice(0,10);
-    // Set heatmap year to year of most recent data
-    heatYear=all[all.length-1].date.getFullYear();
-  } else {
-    const from=new Date(now.getFullYear(),now.getMonth()-2,1);
-    document.getElementById('dfrom').value=from.toISOString().slice(0,10);
-    document.getElementById('dto').value=now.toISOString().slice(0,10);
-  }
+  });
 
-  rebuild();
-})();
-</script>
-  <footer class="footer" style="margin-top:48px">
-    <div class="footer-container">
-      <div class="footer-main">
-        <div class="footer-info">
-          <span class="footer-brand">Lista de Compras · Dashboard</span>
-          <p class="footer-copy">&copy; 2025 – 2026. Todos os direitos reservados.</p>
-        </div>
-        <div class="footer-credits">
-          <p>por <a href="https://greenmonster.netlify.app/" target="_blank" class="footer-link">Erick de Lima Souza</a></p>
-          <span class="footer-project">Green Monster Project</span>
+  valid.sort((a,b)=>b.var-a.var);
+  const top=valid.slice(0,3);
+  if(!top.length){el.innerHTML='<div class="nd"><span class="ndi">📉</span>Sem produtos com histórico suficiente</div>';return;}
+
+  let h='';
+  top.forEach(t=>{
+    const c=t.var>0?'#F87171':'#10B981';
+    const ic=t.var>0?'↑':'↓';
+    h+=`<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--ln2)">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:13px;font-weight:600;color:var(--tx2)">${t.name}</span>
+            <span style="font-size:13px;font-weight:700;color:${c}">${ic} ${Math.abs(t.var).toFixed(1)}%</span>
+          </div>
+          <div style="display:flex;gap:4px;height:24px;align-items:flex-end">`;
+
+    const allVals=t.keys.map(k=>t.data[k].s/t.data[k].c);
+    const min=Math.min(...allVals)*0.8;
+    const max=Math.max(...allVals)*1.1;
+
+    t.keys.forEach((k,i)=>{
+      const v=allVals[i];
+      const pct=Math.max(10,((v-min)/(max-min))*100);
+      h+=`<div title="${mlbl(k)}: ${brl(v)}" style="flex:1;background:var(--ac);opacity:${0.4+(i/t.keys.length)*0.6};height:${pct}%;border-radius:2px"></div>`;
+    });
+    h+=`</div></div>`;
+  });
+  el.innerHTML=h;
+}
+
+/* ── HEATMAP (Mapa de Calor) ────────────────────────────────── */
+function buildHeat(all){
+  const el=document.getElementById('heatEl');
+  document.getElementById('heatYr').textContent=heatYear;
+  const yEv=all.filter(e=>e.date.getFullYear()===heatYear);
+  const byD={};
+  yEv.forEach(e=>{
+    const k=e.date.toISOString().split('T')[0];
+    byD[k]=(byD[k]||0)+e.total;
+  });
+
+  const max=Math.max(...Object.values(byD),1);
+  const d1=new Date(heatYear,0,1);
+  const d2=new Date(heatYear,11,31);
+
+  let h='';
+  const mNames=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  h+='<div style="display:flex;flex-direction:column;gap:4px;margin-right:8px;margin-top:16px;font-size:10px;color:var(--tx3)">';
+  mNames.forEach(m=>h+=`<div style="height:12px;line-height:12px">${m}</div>`);
+  h+='</div><div style="display:flex;gap:4px;overflow-x:auto;padding-bottom:8px;flex:1">';
+
+  let cur=new Date(d1);
+  let col='';
+  let m=0;
+  while(cur<=d2){
+    if(cur.getMonth()!==m){
+      if(col) h+=`<div style="display:flex;flex-direction:column;gap:4px">${col}</div>`;
+      col=''; m=cur.getMonth();
+    }
+    const k=cur.toISOString().split('T')[0];
+    const v=byD[k];
+    let bg='var(--bg2)';
+    if(v){
+      const op=0.2+(v/max)*0.8;
+      bg=`rgba(0,196,140,${op})`;
+    }
+    col+=`<div title="${k.split('-').reverse().join('/')}${v?' - '+brl(v):''}" style="width:12px;height:12px;border-radius:2px;background:${bg}"></div>`;
+    cur.setDate(cur.getDate()+1);
+  }
+  if(col) h+=`<div style="display:flex;flex-direction:column;gap:4px">${col}</div>`;
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+/* ── TIMELINE (Histórico Detalhado) ─────────────────────────── */
+function buildTimeline(ev){
+  const el=document.getElementById('tlEl');
+  if(!ev.length){el.innerHTML='<div class="nd"><span class="ndi">⏳</span>Sem listas no período</div>';return;}
+  const s=[...ev].sort((a,b)=>b.date-a.date);
+  let h='';
+  s.forEach(e=>{
+    const d=e.date.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+    const pay=e.payments&&e.payments.length>0?PAY_LABELS[e.payments[0].method]||'💳 Pago':'—';
+    h+=`
+    <div class="tl-card">
+      <div class="tl-date">
+        <span style="font-size:16px;font-weight:700;color:var(--tx)">${e.date.getDate()}</span>
+        <span style="font-size:11px;text-transform:uppercase;color:var(--tx3)">${e.date.toLocaleDateString('pt-BR',{month:'short'})}</span>
+      </div>
+      <div class="tl-info">
+        <div class="tl-name">${e.name}</div>
+        <div class="tl-meta">
+          <span style="background:var(--bg2);padding:2px 6px;border-radius:4px">${e.listType}</span>
+          ${e.market?`<span style="background:var(--bg2);padding:2px 6px;border-radius:4px">🏪 ${e.market}</span>`:''}
+          <span style="color:var(--tx3)">${pay}</span>
         </div>
       </div>
-      <div class="footer-accent-bar"></div>
-    </div>
-  </footer>
+      <div class="tl-val">
+        <div style="font-weight:700;color:var(--ac)">${brl(e.total)}</div>
+        ${e.economy>0?`<div style="font-size:11px;color:#10B981">Econ. ${brl(e.economy)}</div>`:''}
+      </div>
+    </div>`;
+  });
+  el.innerHTML=h;
+}
 
+/* ── TOP PRODUCTS (Ranking de Gastos) ───────────────────────── */
+function buildTop(ev){
+  const el=document.getElementById('topEl');
+  const m={};
+  ev.forEach(e=>(e.items||[]).forEach(it=>{
+    const c=itemCost(it);
+    if(c>0){const n=it.name.trim().toUpperCase();m[n]=(m[n]||0)+c;}
+  }));
+  const s=Object.keys(m).sort((a,b)=>m[b]-m[a]).slice(0,10);
+  if(!s.length){el.innerHTML='<div class="nd"><span class="ndi">📦</span>Sem dados com preços</div>';return;}
+  const mx=m[s[0]];
+  let h='<div class="top-list">';
+  s.forEach((n,i)=>{
+    const p=(m[n]/mx)*100;
+    h+=`
+    <div class="top-item">
+      <div class="top-rank">${i+1}</div>
+      <div class="top-bar-wrap">
+        <div class="top-name"><span>${n}</span><span>${brl(m[n])}</span></div>
+        <div class="top-bar-bg"><div class="top-bar-fill" style="width:${p}%"></div></div>
+      </div>
+    </div>`;
+  });
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+/* ── TYPE FILTER (Filtro de Categoria da Lista) ─────────────── */
+function populateTypeFilter(all){
+  const sel=document.getElementById('typeFilter');
+  const types=new Set(all.map(e=>e.listType));
+  const curr=sel.value;
+  let h='<option value="Todos">Todos</option>';
+  Array.from(types).sort().forEach(t=>{
+    if(t&&t!=='—') h+=`<option value="${t}">${t}</option>`;
+  });
+  sel.innerHTML=h;
+  if(Array.from(types).includes(curr)) sel.value=curr;
+  else activeType='Todos';
+}
+
+/* ── INIT & EVENTS ──────────────────────────────────────────── */
+async function init(){
+  const demoTag = document.getElementById('demoTag');
+
+  // Tenta buscar dados do Supabase
+  let data = await fetchSupabaseData();
+
+  // Se não houver dados, usa DEMO
+  if(!data || data.length === 0){
+    console.log("Sem dados reais, carregando DEMO...");
+    data = makeDemo();
+    useDemo = true;
+    demoTag.style.display = 'inline-block';
+  } else {
+    demoTag.style.display = 'none';
+  }
+
+  globalEvents = data;
+  rebuild();
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Tabs de Período
+  document.querySelectorAll('.tab').forEach(b=>{
+    b.addEventListener('click',e=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      e.target.classList.add('active');
+      activePer=e.target.dataset.p;
+      cfrom=null; cto=null;
+      document.getElementById('dfrom').value='';
+      document.getElementById('dto').value='';
+      rebuild();
+    });
+  });
+
+  // Filtro de Data Customizado
+  document.getElementById('applyBtn').addEventListener('click',()=>{
+    const f=document.getElementById('dfrom').value;
+    const t=document.getElementById('dto').value;
+    if(f&&t){
+      cfrom=new Date(f+'T00:00:00');
+      cto=new Date(t+'T23:59:59');
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      activePer='custom';
+      rebuild();
+    }
+  });
+
+  // Filtro de Tipo
+  document.getElementById('typeFilter').addEventListener('change',e=>{
+    activeType=e.target.value;
+    rebuild();
+  });
+
+  // Navegação do Heatmap
+  document.getElementById('heatPrev').addEventListener('click',()=>{
+    heatYear--; rebuild();
+  });
+  document.getElementById('heatNext').addEventListener('click',()=>{
+    heatYear++; rebuild();
+  });
+
+  // Inicia a aplicação
+  init();
+});
+</script>
 </body>
 </html>

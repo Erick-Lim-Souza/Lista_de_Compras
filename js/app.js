@@ -2,16 +2,15 @@
  * js/app.js
  * ─────────────────────────────────────────────────────────────
  * Orquestrador da Aplicação (O "Cérebro").
- * Este arquivo não faz cálculos matemáticos nem altera o DOM diretamente.
- * Ele apenas escuta os cliques e digitações do usuário e delega as tarefas
- * para os módulos especialistas: Calculator, Storage, UI e Exporter.
+ * Atualizado para trabalhar de forma assíncrona com o Supabase.
+ * Conectado ao novo Menu Lateral, Configurações, Submenus e DASHBOARD.
  * ─────────────────────────────────────────────────────────────
  */
 
 'use strict';
 
 // ═══════════════════════════════════════════════════════════════
-// MAPEAMENTO DE CATEGORIAS (Dados puros, fáceis de expandir)
+// MAPEAMENTO DE CATEGORIAS
 // ═══════════════════════════════════════════════════════════════
 const LIST_CATEGORIES = {
   'Supermercado':  { 'Alimentos':'🍎','Hortifruti':'🥦','Ovo':'🥚','Carnes':'🍖','Limpeza':'🧽','Higiene':'🧴','Bebidas':'🥤','Outros':'📦' },
@@ -27,9 +26,6 @@ function _getCategoriesForType(type) {
   return LIST_CATEGORIES[type] || LIST_CATEGORIES['Supermercado'];
 }
 
-// ═══════════════════════════════════════════════════════════════
-// FUNÇÃO AUXILIAR: COMPARAÇÃO DE LISTAS
-// ═══════════════════════════════════════════════════════════════
 function _compareLists(items1, items2) {
   const common = [], onlyInList1 = [], onlyInList2 = [];
   items1.forEach(i1 => {
@@ -45,31 +41,19 @@ function _compareLists(items1, items2) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SUGGESTION MANAGER (Assistente Preditivo)
-// A partir daqui é gerenciada a interface de sugestões de compras.
+// SUGGESTION MANAGER
 // ═══════════════════════════════════════════════════════════════
 const SuggestionManager = (() => {
   const LIST_TYPE_ICONS = {
-    'Supermercado':  '🛒',
-    'Feira Livre':   '🥕',
-    'Açougue':       '🍖',
-    'Farmácia':      '💊',
-    'Roupas':        '👕',
-    'Eletrônicos':   '📱',
-    'Casa e Jardim': '🏠',
+    'Supermercado':  '🛒', 'Feira Livre':   '🥕', 'Açougue':       '🍖',
+    'Farmácia':      '💊', 'Roupas':        '👕', 'Eletrônicos':   '📱', 'Casa e Jardim': '🏠',
   };
-  const URGENCY_LABELS = {
-    overdue: '⚠️ Acabou',
-    soon:    '🔔 Acabando',
-    ok:      '✅ Ok',
-    unknown: '❓ Novo',
-  };
+  const URGENCY_LABELS = { overdue: '⚠️ Acabou', soon: '🔔 Acabando', ok: '✅ Ok', unknown: '❓ Novo' };
 
   let _allProducts = [];
   let _selected    = new Set();
   let _activeType  = 'Todos';
 
-  // ── Renderização das abas de tipo ─────────────────────────────
   function _renderTabs() {
     const wrap = document.getElementById('suggestTypeTabs');
     if (!wrap) return;
@@ -99,14 +83,11 @@ const SuggestionManager = (() => {
     wrap.querySelectorAll('.stype-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         _activeType = btn.dataset.type;
-        _renderTabs();
-        _renderSummary();
-        _renderList();
+        _renderTabs(); _renderSummary(); _renderList();
       });
     });
   }
 
-  // ── Resumo da situação (chips) ────────────────────────────────
   function _renderSummary() {
     const el = document.getElementById('suggestSummary');
     if (!el) return;
@@ -119,9 +100,7 @@ const SuggestionManager = (() => {
       { key: 'ok',      label: `✅ ${counts.ok} em dia` },
       { key: 'unknown', label: `❓ ${counts.unknown} novo${counts.unknown !== 1 ? 's' : ''}` },
     ].filter(c => counts[c.key] > 0);
-    el.innerHTML = chips.map(c =>
-      `<span class="ssum-chip ${c.key}">${c.label}</span>`
-    ).join('');
+    el.innerHTML = chips.map(c => `<span class="ssum-chip ${c.key}">${c.label}</span>`).join('');
 
     const selAllBtn = document.getElementById('suggestSelectAll');
     if (selAllBtn) {
@@ -142,14 +121,11 @@ const SuggestionManager = (() => {
     return                        { dots: '○○○', label: 'novo',  cls: 'conf-none' };
   }
 
-  // ── Renderização da lista de produtos (SEGURA) ─────────────────
-  // A partir daqui é criada a lista de produtos sugeridos.
-  // Nenhum dado do usuário é inserido via innerHTML.
   function _renderList() {
     const el = document.getElementById('suggestList');
     if (!el) return;
     const items = _filtered();
-    el.innerHTML = ''; // apenas para esvaziar
+    el.innerHTML = '';
 
     if (!items.length) {
       const nd = document.createElement('div');
@@ -167,26 +143,22 @@ const SuggestionManager = (() => {
       const conf = _confidence(p.occurrences);
       const urgency = p.urgency;
       const qtyStr = `${p.lastQty} ${p.lastUnit || 'un'}`;
-      const priceStr = p.lastPrice > 0
-        ? `R$${p.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · `
-        : '';
+      const priceStr = p.lastPrice > 0 ? `R$${p.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · ` : '';
 
       const row = document.createElement('div');
       row.className = `sug-item urgency-${urgency}${sel ? ' selected' : ''}`;
       row.dataset.norm = p.norm;
 
-      // Checkbox visual
       const checkDiv = document.createElement('div');
       checkDiv.className = 'sug-check';
       checkDiv.textContent = sel ? '✓' : '';
 
-      // Info
       const infoDiv = document.createElement('div');
       infoDiv.className = 'sug-info';
 
       const nameDiv = document.createElement('div');
       nameDiv.className = 'sug-name';
-      nameDiv.textContent = p.name; // seguro!
+      nameDiv.textContent = p.name;
 
       const confSpan = document.createElement('span');
       confSpan.className = `sug-conf ${conf.cls}`;
@@ -202,16 +174,12 @@ const SuggestionManager = (() => {
       detailDiv.className = 'sug-detail';
       detailDiv.textContent = `${priceStr}${qtyStr} · ${p.occurrences}× comprado`;
 
-      infoDiv.appendChild(nameDiv);
-      infoDiv.appendChild(metaDiv);
-      infoDiv.appendChild(detailDiv);
+      infoDiv.appendChild(nameDiv); infoDiv.appendChild(metaDiv); infoDiv.appendChild(detailDiv);
 
-      // Badge de urgência
       const badge = document.createElement('span');
       badge.className = `sug-urgency-badge ${urgency}`;
       badge.textContent = URGENCY_LABELS[urgency];
 
-      // Barra de progresso
       const progDiv = document.createElement('div');
       progDiv.className = 'sug-progress';
       const pctSpan = document.createElement('span');
@@ -223,14 +191,9 @@ const SuggestionManager = (() => {
       barFill.className = `sug-bar-fill ${urgency}`;
       barFill.style.width = pctCapped + '%';
       barBg.appendChild(barFill);
-      progDiv.appendChild(pctSpan);
-      progDiv.appendChild(barBg);
+      progDiv.appendChild(pctSpan); progDiv.appendChild(barBg);
 
-      row.appendChild(checkDiv);
-      row.appendChild(infoDiv);
-      row.appendChild(badge);
-      row.appendChild(progDiv);
-
+      row.appendChild(checkDiv); row.appendChild(infoDiv); row.appendChild(badge); row.appendChild(progDiv);
       row.addEventListener('click', () => _toggleItem(p.norm, row));
       el.appendChild(row);
     });
@@ -269,10 +232,7 @@ const SuggestionManager = (() => {
     _selected.clear();
     _activeType = 'Todos';
     _allProducts = Calculator.analyzeAllProducts(savedLists, { minOccurrences: 1 });
-    _renderTabs();
-    _renderSummary();
-    _renderList();
-    _updateCreateBtn();
+    _renderTabs(); _renderSummary(); _renderList(); _updateCreateBtn();
   }
 
   function selectAllUrgent() {
@@ -280,28 +240,20 @@ const SuggestionManager = (() => {
     let toSelect = filtered.filter(p => p.urgency === 'overdue' || p.urgency === 'soon');
     if (toSelect.length === 0) toSelect = filtered;
     toSelect.forEach(p => _selected.add(p.norm));
-    _renderList();
-    _updateCreateBtn();
+    _renderList(); _updateCreateBtn();
   }
 
   function clearAll() {
-    _selected.clear();
-    _renderList();
-    _updateCreateBtn();
+    _selected.clear(); _renderList(); _updateCreateBtn();
   }
 
   function createList() {
     if (!_selected.size) return null;
     const chosen = _allProducts.filter(p => _selected.has(p.norm));
-
     const byType = {};
-    chosen.forEach(p => {
-      byType[p.listType] = byType[p.listType] || [];
-      byType[p.listType].push(p);
-    });
+    chosen.forEach(p => { byType[p.listType] = byType[p.listType] || []; byType[p.listType].push(p); });
 
     const types = Object.keys(byType);
-
     const buildItems = (products) => products.map(p => ({
       id:             Calculator.generateId(),
       name:           p.name,
@@ -313,9 +265,7 @@ const SuggestionManager = (() => {
       completed:      false,
     }));
 
-    if (types.length === 1) {
-      return { multi: false, listType: types[0], items: buildItems(byType[types[0]]), byType };
-    }
+    if (types.length === 1) return { multi: false, listType: types[0], items: buildItems(byType[types[0]]), byType };
 
     const listsByType = {};
     types.forEach(t => { listsByType[t] = buildItems(byType[t]); });
@@ -353,46 +303,34 @@ const SuggestionManager = (() => {
           <span class="mtype-count">${items.length} item${items.length !== 1 ? 's' : ''}${urgentN ? ` · <span class="mtype-urgent">${urgentN} urgente${urgentN !== 1 ? 's' : ''}</span>` : ''}</span>
         </span>
         <span class="mtype-arrow">→</span>`;
-      btn.addEventListener('click', () => {
-        UI.hideModal(modal);
-        onChoice({ items, listType: type });
-      });
+      btn.addEventListener('click', () => { UI.hideModal(modal); onChoice({ items, listType: type }); });
       list.appendChild(btn);
     });
 
     UI.showModal(modal);
     document.getElementById('multiTypeCancel')?.addEventListener('click', () => {
-      UI.hideModal(modal);
-      onChoice(null);
+      UI.hideModal(modal); onChoice(null);
     }, { once: true });
   }
 
   return { open, selectAllUrgent, clearAll, createList, showMultiTypeDialog };
 })();
 
-
 // ═══════════════════════════════════════════════════════════════
-// CONTROLES DE PAGAMENTO (PaymentManager)
-// A partir daqui é criada a forma de pagamento utilizada na lista.
+// CONTROLES DE PAGAMENTO
 // ═══════════════════════════════════════════════════════════════
 const PAYMENT_METHODS = {
-  dinheiro:         '💵 Dinheiro',
-  pix:              '⚡ PIX',
-  cartao_credito:   '💳 Crédito',
-  cartao_debito:    '💳 Débito',
-  vale_alimentacao: '🥗 Vale Alimentação',
-  vale_refeicao:    '🍽️ Vale Refeição',
-  outro:            '📌 Outro',
+  dinheiro: '💵 Dinheiro', pix: '⚡ PIX', cartao_credito: '💳 Crédito',
+  cartao_debito: '💳 Débito', vale_alimentacao: '🥗 Vale Alimentação',
+  vale_refeicao: '🍽️ Vale Refeição', outro: '📌 Outro',
 };
 function _paymentLabel(method) { return PAYMENT_METHODS[method] || method; }
 
 const PaymentManager = (() => {
-  let _rows    = [];
-  let _total   = 0;
+  let _rows = [];
+  let _total = 0;
 
-  function _fmt(n) {
-    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+  function _fmt(n) { return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
   function _buildSelect(selected) {
     const sel = document.createElement('select');
@@ -475,9 +413,7 @@ const PaymentManager = (() => {
     _render();
   }
 
-  function get() {
-    return _rows.filter(r => r.method && r.amount > 0);
-  }
+  function get() { return _rows.filter(r => r.method && r.amount > 0); }
 
   function validate() {
     const pmts = get();
@@ -492,34 +428,45 @@ const PaymentManager = (() => {
 
 // ═══════════════════════════════════════════════════════════════
 // CLASSE PRINCIPAL (ShoppingList)
-// A partir daqui é criada a lista de compras e seus controles.
 // ═══════════════════════════════════════════════════════════════
 class ShoppingList {
 
   constructor() {
-    this.items           = [];
-    this.currentFilter   = 'all';
-    this.currentListName = 'Lista Atual';
-    this.currentListType = 'Supermercado';
-    this.editingIndex    = -1;
-    this.listTypes       = Object.fromEntries(Object.entries(LIST_CATEGORIES).map(([k]) => [k, {
+    this.items             = [];
+    this.customCategories  = [];
+    this.priceHistoryCache = [];
+    this.currentFilter     = 'all';
+    this.currentListName   = 'Lista Atual';
+    this.currentListType   = 'Supermercado';
+    this.editingIndex      = -1;
+    this.listTypes         = Object.fromEntries(Object.entries(LIST_CATEGORIES).map(([k]) => [k, {
       'Supermercado':'🛒','Feira Livre':'🥕','Açougue':'🍖','Roupas':'👕',
       'Farmácia':'💊','Eletrônicos':'📱','Casa e Jardim':'🏠',
     }[k] || '📋']));
-    this._init();
   }
 
-  // ── Inicialização: bind de elementos e eventos ─────────────────
-  _init() {
+  async initApp() {
     this._bindElements();
-    this._loadFromStorage();
-    UI.applyTheme(Storage.getTheme());
+
+    this.customCategories  = await Storage.getCustomCategories();
+    this.priceHistoryCache = await Storage.getPriceHistory();
+    await this._loadFromStorage();
+
+    const theme = localStorage.getItem('theme') || 'light';
+    UI.applyTheme(theme);
+
     this._bindEvents();
-    UI.showListTypeSelection(this.listTypes, type => {
-      this.currentListType = type;
+
+    if (this.items.length === 0) {
+      UI.showListTypeSelection(this.listTypes, type => {
+        this.currentListType = type;
+        this._updateCategories();
+        this.render();
+      });
+    } else {
       this._updateCategories();
       this.render();
-    });
+    }
   }
 
   _bindElements() {
@@ -552,33 +499,89 @@ class ShoppingList {
     this.compareExec   = $('compareExecute');
     this.compareClose  = $('compareClose');
     this.suggestModal  = $('suggestModal');
-    this.saveModal     = $('saveListModal');   // ID correto!
+    this.saveModal     = $('saveListModal');
   }
 
-  // ── Vinculação de eventos da interface ─────────────────────────
   _bindEvents() {
     const on = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
 
-    this.form.addEventListener('submit', e => this._handleSubmit(e));
+    // ── LÓGICA DO MENU LATERAL ──
+    const menuToggle = document.getElementById('menuToggle');
+    const sideMenu   = document.getElementById('sideMenu');
+    const menuOverlay= document.getElementById('menuOverlay');
+
+    const closeMenu = () => {
+      sideMenu?.classList.remove('open');
+      menuOverlay?.classList.remove('show');
+    };
+
+    if (menuToggle && sideMenu && menuOverlay) {
+      menuToggle.addEventListener('click', () => {
+        sideMenu.classList.add('open');
+        menuOverlay.classList.add('show');
+      });
+      menuOverlay.addEventListener('click', closeMenu);
+    }
+
+    // Fechar menu ao clicar em itens normais (mas ignorar botões de submenu)
+    document.querySelectorAll('.menu-item:not(.submenu-btn):not([data-toggle="submenu"])').forEach(item => {
+      item.addEventListener('click', closeMenu);
+    });
+
+    // ── LÓGICA GENÉRICA PARA SUBMENUS (ACCORDION) ──
+    document.querySelectorAll('.submenu-btn, .submenu-toggle, [data-toggle="submenu"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        btn.classList.toggle('active');
+        const targetId = btn.getAttribute('data-target');
+        const submenu = targetId ? document.getElementById(targetId) : btn.nextElementSibling;
+
+        if (submenu) {
+          submenu.classList.toggle('show');
+          submenu.classList.toggle('open');
+          const isHidden = window.getComputedStyle(submenu).display === 'none';
+          if (isHidden || submenu.style.display === 'none') {
+            submenu.style.display = 'block';
+          } else {
+            submenu.style.display = 'none';
+          }
+        }
+      });
+    });
+
+    this.form?.addEventListener('submit', e => this._handleSubmit(e));
 
     on('clearAllButton',     'click', () => this._confirmClearAll());
     on('shareButton',        'click', () => this._shareList());
     on('darkModeToggle',     'click', () => this._toggleTheme());
+
     on('historyButton',      'click', () => this._showHistory());
+    on('menuHistory',        'click', () => { closeMenu(); this._showHistory(); });
+
+    on('compareListsButton', 'click', () => this._showCompareDialog());
+    on('menuCompare',        'click', () => { closeMenu(); this._showCompareDialog(); });
+
     on('saveListButton',     'click', () => this._showSaveDialog());
     on('newListButton',      'click', () => this._createNewList());
-    on('compareListsButton', 'click', () => this._showCompareDialog());
     on('versionButton',      'click', () => window.open('versao.html', '_blank'));
 
-    // Exportação
+    // Logout
+    on('menuLogout', 'click', async () => {
+      if (window.supabaseClient) {
+        await window.supabaseClient.auth.signOut();
+        window.location.reload();
+      }
+    });
+
     on('exportTxt',   'click', () => {
       Exporter.toTxt(this.items, this.currentListName, this.currentListType,
         this.listTypes[this.currentListType], cat => this._getCatEmoji(cat));
       UI.showToast('Lista exportada para TXT!');
     });
     on('exportPdf',   'click', () => {
-      const ok = Exporter.toPdf(this.items, this.currentListName, this.currentListType,
-        cat => this._getCatEmoji(cat));
+      const ok = Exporter.toPdf(this.items, this.currentListName, this.currentListType, cat => this._getCatEmoji(cat));
       UI.showToast(ok ? 'Lista exportada para PDF!' : 'Adicione itens antes de exportar!');
     });
     on('exportExcel', 'click', () => {
@@ -586,43 +589,26 @@ class ShoppingList {
       UI.showToast('Lista exportada para CSV!');
     });
 
-    // Backup
-    on('backupDownload', 'click', () => {
-      Storage.exportBackup();
-      UI.showToast('Backup baixado!');
-    });
-    on('backupUpload', 'click', () => document.getElementById('backupFileInput').click());
-    document.getElementById('backupFileInput')?.addEventListener('change', async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const result = await Storage.importBackup(file);
-      UI.showToast(result.message);
-      e.target.value = '';
-      if (result.ok) { this._loadFromStorage(); this.render(); }
-    });
+    on('backupDownload', 'click', () => UI.showToast('O backup agora é automático na nuvem! ☁️'));
+    on('backupUpload', 'click', () => UI.showToast('Suas listas já estão sincronizadas! ☁️'));
 
-    // Filtros e Modal
-    this.filterButtons.forEach(btn =>
-      btn.addEventListener('click', e => this._setFilter(e.target.dataset.filter))
-    );
+    this.filterButtons?.forEach(btn => btn.addEventListener('click', e => this._setFilter(e.target.dataset.filter)));
 
-    this.confirmCancel.addEventListener('click',  () => UI.hideModal(this.confirmModal));
-    this.historyClose.addEventListener('click',   () => UI.hideModal(this.historyModal));
-    this.saveCancel.addEventListener('click',     () => UI.hideModal(this.saveModal));
-    this.saveConfirm.addEventListener('click',    () => this._saveCurrentList());
-    this.compareClose.addEventListener('click',   () => UI.hideModal(this.compareModal));
-    this.compareExec.addEventListener('click',    () => this._executeComparison());
+    this.confirmCancel?.addEventListener('click',  () => UI.hideModal(this.confirmModal));
+    this.historyClose?.addEventListener('click',   () => UI.hideModal(this.historyModal));
+    this.saveCancel?.addEventListener('click',     () => UI.hideModal(this.saveModal));
+    this.saveConfirm?.addEventListener('click',    () => this._saveCurrentList());
+    this.compareClose?.addEventListener('click',   () => UI.hideModal(this.compareModal));
+    this.compareExec?.addEventListener('click',    () => this._executeComparison());
 
     const pmAddBtn = document.getElementById('pmAddBtn');
     if (pmAddBtn) pmAddBtn.addEventListener('click', () => PaymentManager.add());
 
-    // Sugestões
     on('suggestButton',  'click', () => this._openSuggest());
     on('suggestClose',   'click', () => UI.hideModal(this.suggestModal));
     on('suggestSelectAll','click', () => SuggestionManager.selectAllUrgent());
     on('suggestClearAll', 'click', () => SuggestionManager.clearAll());
     on('suggestCreate',   'click', () => this._createFromSuggestion());
-
     on('priceHistoryClose', 'click', () => UI.hideModal(document.getElementById('priceHistoryModal')));
 
     this._bindConfigEvents();
@@ -630,7 +616,6 @@ class ShoppingList {
     document.querySelectorAll('.modal').forEach(m =>
       m.addEventListener('click', e => { if (e.target === m) UI.hideModal(m); })
     );
-
     document.addEventListener('keydown', e => { if (e.key === 'Escape') UI.hideAllModals(); });
   }
 
@@ -638,13 +623,30 @@ class ShoppingList {
     const on = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
     const configModal = document.getElementById('configModal');
 
-    on('configButton', 'click', () => {
+    const openConfig = async () => {
       const disp = document.getElementById('currentListTypeDisplay');
       if (disp) disp.textContent = this.currentListType;
       this._refreshCustomCategoryList();
+
+      if (window.supabaseClient) {
+        const { data: { user } } = await window.supabaseClient.auth.getUser();
+        if (user) UI.fillConfigProfile(user);
+      }
+
       UI.showModal(configModal);
+    };
+
+    on('configButton', 'click', openConfig);
+    on('menuConfig',   'click', () => {
+      const sideMenu = document.getElementById('sideMenu');
+      const menuOverlay = document.getElementById('menuOverlay');
+      if (sideMenu) sideMenu.classList.remove('open');
+      if (menuOverlay) menuOverlay.classList.remove('show');
+      openConfig();
     });
+
     on('configClose',  'click', () => UI.hideModal(configModal));
+
     on('changeListType','click', () => {
       UI.hideModal(configModal);
       UI.showListTypeSelection(this.listTypes, type => {
@@ -653,34 +655,82 @@ class ShoppingList {
         this.render();
       });
     });
-    on('addCustomCategory', 'click', () => {
+
+    on('addCustomCategory', 'click', async () => {
       const nameInput  = document.getElementById('newCategoryName');
       const emojiInput = document.getElementById('newCategoryEmoji');
       const name  = nameInput.value.trim();
       const emoji = emojiInput.value.trim();
       if (!name || !emoji) { UI.showToast('Preencha nome e emoji!'); return; }
-      Storage.addCustomCategory(this.currentListType, name, emoji);
+
+      await Storage.saveCustomCategory({ name, emoji, list_type: this.currentListType });
+      this.customCategories = await Storage.getCustomCategories();
+
       this._updateCategories();
       nameInput.value = ''; emojiInput.value = '';
       this._refreshCustomCategoryList();
       UI.showToast('Categoria adicionada!');
     });
+
+    on('profileForm', 'submit', async (e) => {
+      e.preventDefault();
+      if (!window.supabaseClient) return;
+
+      const data = UI.getProfileFormData();
+      const updates = { data: { apelido: data.name, avatar_url: data.photoUrl } };
+      if (data.password) updates.password = data.password;
+
+      try {
+        const { error } = await window.supabaseClient.auth.updateUser(updates);
+        if (error) throw error;
+        UI.showToast('Perfil atualizado com sucesso!');
+        UI.clearProfilePassword();
+
+        const menuName = document.getElementById('menuUserName');
+        const menuPhoto = document.getElementById('menuUserPhoto');
+        if (menuName) menuName.textContent = data.name || 'Usuário';
+        if (menuPhoto && data.photoUrl) menuPhoto.src = data.photoUrl;
+
+      } catch (err) {
+        UI.showToast('Erro ao atualizar perfil: ' + err.message);
+      }
+    });
+
+    on('deleteAccountBtn', 'click', () => {
+      if (confirm('Tem certeza que deseja deletar sua conta? Esta ação é irreversível e apagará todos os seus dados.')) {
+        UI.showToast('Por segurança, a exclusão de conta deve ser solicitada ao suporte no momento.');
+      }
+    });
+
+    // ── NOVO: SALVAR META MENSAL NO MODAL DE CONFIGURAÇÕES ──
+    on('saveBudgetBtn', 'click', async () => {
+      const budgetInput = document.getElementById('monthlyBudgetInput');
+      if (!budgetInput) return;
+      const amount = parseFloat(budgetInput.value) || 0;
+
+      const success = await Storage.saveMonthlyBudget(amount);
+      if (success) {
+        UI.showToast('Meta mensal atualizada!');
+        this.render(); // Atualiza o Dashboard imediatamente
+      } else {
+        UI.showToast('Erro ao salvar meta.');
+      }
+    });
   }
 
   _refreshCustomCategoryList() {
-    UI.renderCustomCategories(
-      Storage.getCustomCategories(this.currentListType),
-      name => {
-        Storage.removeCustomCategory(this.currentListType, name);
-        this._updateCategories();
-        this._refreshCustomCategoryList();
-        UI.showToast('Categoria removida!');
-      }
-    );
+    const currentCats = this.customCategories.filter(c => c.list_type === this.currentListType);
+    if(UI.renderCustomCategories) {
+      UI.renderCustomCategories(
+        currentCats,
+        async (name) => {
+          UI.showToast('A exclusão de categorias será adicionada em breve!');
+        }
+      );
+    }
   }
 
-  // ── SUBMIT DO FORMULÁRIO (Adicionar / Editar) ─────────────────
-  _handleSubmit(e) {
+  async _handleSubmit(e) {
     e.preventDefault();
     const name      = this.itemInput.value.trim();
     const wholesale = parseFloat(this.priceWholesaleInput.value) || 0;
@@ -706,31 +756,28 @@ class ShoppingList {
       this.items.push(item);
     }
 
-    if (wholesale > 0 || retail > 0) Storage.recordPrice(name, wholesale, retail);
-
     this._resetForm();
-    this._saveToStorage();
+    await this._saveToStorage();
     this.render();
     UI.showToast('Item adicionado!');
   }
 
   _resetForm() {
-    this.form.reset();
-    this.quantityInput.value = '1';
-    this.itemInput.focus();
+    if(this.form) this.form.reset();
+    if(this.quantityInput) this.quantityInput.value = '1';
+    if(this.itemInput) this.itemInput.focus();
   }
 
   _toggleTheme() {
-    const next = Storage.getTheme() === 'dark' ? 'light' : 'dark';
-    Storage.setTheme(next);
+    const current = localStorage.getItem('theme') || 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', next);
     UI.applyTheme(next);
   }
 
   _setFilter(filter) {
     this.currentFilter = filter;
-    this.filterButtons.forEach(btn =>
-      btn.classList.toggle('active', btn.dataset.filter === filter)
-    );
+    this.filterButtons?.forEach(btn => btn.classList.toggle('active', btn.dataset.filter === filter));
     this.render();
   }
 
@@ -740,13 +787,12 @@ class ShoppingList {
     return this.items;
   }
 
-  // ── AÇÕES DOS ITENS ──────────────────────────────────────────
-  toggleItem(index) {
+  async toggleItem(index) {
     const item = this.items[index];
     item.completed = !item.completed;
     if ('vibrate' in navigator) navigator.vibrate(40);
     this.items.sort((a, b) => (a.completed ? 1 : 0) - (b.completed ? 1 : 0));
-    this._saveToStorage();
+    await this._saveToStorage();
     this.render();
   }
 
@@ -767,9 +813,9 @@ class ShoppingList {
   deleteItem(index) {
     UI.setText(this.confirmMsg, `Excluir "${this.items[index].name}"?`);
     UI.showModal(this.confirmModal);
-    this.confirmOk.onclick = () => {
+    this.confirmOk.onclick = async () => {
       this.items.splice(index, 1);
-      this._saveToStorage();
+      await this._saveToStorage();
       this.render();
       UI.hideModal(this.confirmModal);
       UI.showToast('Item excluído!');
@@ -778,7 +824,7 @@ class ShoppingList {
 
   showPriceHistory(index) {
     const item    = this.items[index];
-    const history = Storage.getPriceHistory(item.name);
+    const history = this.priceHistoryCache.filter(h => h.product_name && h.product_name.toLowerCase() === item.name.toLowerCase());
     UI.renderPriceHistoryModal(item.name, history);
   }
 
@@ -786,9 +832,9 @@ class ShoppingList {
     if (!this.items.length) { UI.showToast('A lista já está vazia!'); return; }
     UI.setText(this.confirmMsg, 'Limpar toda a lista?');
     UI.showModal(this.confirmModal);
-    this.confirmOk.onclick = () => {
+    this.confirmOk.onclick = async () => {
       this.items = [];
-      this._saveToStorage();
+      await this._saveToStorage();
       this.render();
       UI.hideModal(this.confirmModal);
       UI.showToast('Lista limpa!');
@@ -797,69 +843,53 @@ class ShoppingList {
 
   _shareList() {
     if (!this.items.length) { UI.showToast('Adicione itens primeiro!'); return; }
-    const text = this.items.map(i =>
-      `${i.completed ? '✅' : '⬜'} ${i.quantity} ${i.unit} de ${i.name}`
-    ).join('\n');
+    const text = this.items.map(i => `${i.completed ? '✅' : '⬜'} ${i.quantity} ${i.unit} de ${i.name}`).join('\n');
     const body = `📝 ${this.currentListName}\n\n${text}`;
     if (navigator.share) navigator.share({ title: this.currentListName, text: body });
     else navigator.clipboard.writeText(body).then(() => UI.showToast('Lista copiada!'));
   }
 
-  // ── HISTÓRICO, SALVAR, CARREGAR ───────────────────────────────
-  _showHistory() {
-    UI.renderHistory(Storage.getSavedLists(), {
-      onLoad:     idx => this.loadList(idx),
-      onDelete:   idx => this.deleteList(idx),
-      onEditDate: idx => this._editListDate(idx),
+  async _showHistory() {
+    const lists = await Storage.getSavedLists();
+    UI.renderHistory(lists, {
+      onLoad:     idx => this.loadList(lists[idx]),
+      onDelete:   idx => this.deleteList(lists[idx].id, lists[idx].name),
+      onEditDate: idx => UI.showToast('Edição de data em breve na nuvem!'),
     });
     UI.showModal(this.historyModal);
   }
 
-  _editListDate(index) {
-    const lists = Storage.getSavedLists();
-    const list  = lists[index];
-    if (!list) return;
-    const currentDate = list.date
-      ? new Date(list.date).toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10);
-    const newDateStr = window.prompt(
-      `Alterar data da lista "${list.name}"\n\nFormato: AAAA-MM-DD`,
-      currentDate
-    );
-    if (!newDateStr) return;
-    const parsed = new Date(newDateStr + 'T12:00:00');
-    if (isNaN(parsed)) { UI.showToast('Data inválida!'); return; }
-    Storage.saveNamedList(list.name, list.items, list.listType,
-      parsed.toISOString(), list.payments || [], list.total || 0, list.market || null);
-    this._showHistory();
-    UI.showToast(`Data atualizada para ${parsed.toLocaleDateString('pt-BR')}!`);
-  }
-
-  loadList(index) {
-    const lists = Storage.getSavedLists();
-    if (!lists[index]) return;
-    const l = lists[index];
-    this.items           = [...l.items];
-    this.currentListName = l.name;
-    this.currentListType = l.listType || 'Supermercado';
-    this.currentListNameEl.textContent = this.currentListName;
+  async loadList(listObj) {
+    if (!listObj) return;
+    this.items = listObj.list_items.map(i => ({
+      id: i.id,
+      name: i.name,
+      category: i.category,
+      quantity: i.quantity,
+      unit: i.unit,
+      priceWholesale: i.wholesale_price,
+      priceRetail: i.retail_price,
+      completed: i.completed
+    }));
+    this.currentListName = listObj.name;
+    this.currentListType = listObj.list_type || 'Supermercado';
+    if(this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
     this._updateCategories();
-    this._saveToStorage();
+    await this._saveToStorage();
     this.render();
     UI.hideModal(this.historyModal);
-    UI.showToast(`Lista "${l.name}" carregada!`);
+    UI.showToast(`Lista "${listObj.name}" carregada!`);
   }
 
-  deleteList(index) {
-    const name = (Storage.getSavedLists()[index] || {}).name;
-    Storage.deleteNamedList(index);
+  async deleteList(id, name) {
+    await Storage.deleteList(id);
     this._showHistory();
     UI.showToast(`Lista "${name}" excluída!`);
   }
 
-  // ── SUGESTÕES ─────────────────────────────────────────────────
-  _openSuggest() {
-    SuggestionManager.open(Storage.getSavedLists());
+  async _openSuggest() {
+    const lists = await Storage.getSavedLists();
+    SuggestionManager.open(lists);
     UI.showModal(this.suggestModal);
   }
 
@@ -879,171 +909,257 @@ class ShoppingList {
     }
   }
 
-  _applySuggestedList(items, listType) {
+  async _applySuggestedList(items, listType) {
     this.items           = items;
     this.currentListType = listType;
-    this.currentListName = '';
-    this.currentListNameEl.textContent = 'Lista Sugerida';
+    this.currentListName = 'Lista Sugerida';
+    if(this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
     this._updateCategories();
-    this._saveToStorage();
+    await this._saveToStorage();
     this.render();
   }
 
-  // ── SALVAR LISTA ──────────────────────────────────────────────
-  _showSaveDialog() {
-    this.listNameInput.value = this.currentListName;
-    const saved = Storage.getSavedLists().find(l => l.name === this.currentListName);
+  async _showSaveDialog() {
+    if(this.listNameInput) this.listNameInput.value = this.currentListName;
+
     if (this.listDateInput) {
-      this.listDateInput.value = saved?.purchaseDate
-        ? new Date(saved.purchaseDate).toISOString().slice(0, 10)
-        : new Date().toISOString().slice(0, 10);
+      this.listDateInput.value = new Date().toISOString().slice(0, 10);
     }
     const total = Calculator.calculateTotals(this.items).general;
-    PaymentManager.init(saved?.payments || null, total);
-    const marketEl = document.getElementById('marketInput');
-    if (marketEl) marketEl.value = saved?.market || '';
+    PaymentManager.init(null, total);
+
     UI.showModal(this.saveModal);
-    this.listNameInput.focus();
+    if(this.listNameInput) this.listNameInput.focus();
   }
 
-  _saveCurrentList() {
-    const name = this.listNameInput.value.trim();
+  // ── CONTINUAÇÃO DO CÓDIGO QUE HAVIA SIDO CORTADO ──
+
+  async _saveCurrentList() {
+    const name = this.listNameInput ? this.listNameInput.value.trim() : 'Nova Lista';
     if (!name) { UI.showToast('Digite um nome!'); return; }
-    const dateStr = this.listDateInput?.value;
-    const purchaseDate = dateStr ? new Date(dateStr + 'T12:00:00').toISOString() : null;
-    const payments = PaymentManager.get();
-    const total    = Calculator.calculateTotals(this.items).general;
-    if (payments.length && !PaymentManager.validate()) {
-      const sum  = payments.reduce((s, p) => s + p.amount, 0);
-      const diff = (total - sum).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-      UI.showToast(`⚠️ Pagamentos não fecham (diferença: R$ ${diff})`);
+
+    const dateStr = this.listDateInput ? this.listDateInput.value : new Date().toISOString().slice(0, 10);
+
+    if (!PaymentManager.validate()) {
+      UI.showToast('Os pagamentos não batem com o total!');
+      return;
     }
-    const market = document.getElementById('marketInput')?.value.trim() || null;
-    Storage.saveNamedList(name, this.items, this.currentListType, purchaseDate, payments, total, market);
-    this.currentListName = name;
-    this.currentListNameEl.textContent = name;
+
+    const listData = {
+      name: name,
+      market: '', // Pode ser adicionado futuramente
+      date: dateStr,
+      totalGeneral: Calculator.calculateTotals(this.items).general
+    };
+
+    const payments = PaymentManager.get();
+
+    // Salva a lista como concluída no Supabase
+    await Storage.saveNewList(listData, this.items, payments);
+
     UI.hideModal(this.saveModal);
-    const payStr = payments.length ? ' · ' + payments.map(p => _paymentLabel(p.method)).join(' + ') : '';
-    const mktStr = market ? ` · 🏪 ${market}` : '';
-    UI.showToast('Lista salva!' + payStr + mktStr);
+    UI.showToast('Lista salva com sucesso!');
+
+    // Limpa a lista atual para começar uma nova
+    this.items = [];
+    this.currentListName = 'Nova Lista';
+    if(this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
+
+    await this._saveToStorage();
+    this.render(); // O Dashboard será atualizado automaticamente aqui
   }
 
-  _createNewList() {
-    const proceed = () => {
-      this.items           = [];
-      this.currentListName = 'Lista Atual';
-      this.currentListNameEl.textContent = 'Lista Atual';
-      this._saveToStorage();
-      this.render();
+  async _createNewList() {
+    if (this.items.length > 0) {
+      UI.setText(this.confirmMsg, 'Criar nova lista? Os itens atuais não salvos serão perdidos.');
+      UI.showModal(this.confirmModal);
+      this.confirmOk.onclick = async () => {
+        this.items = [];
+        this.currentListName = 'Nova Lista';
+        if(this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
+
+        await this._saveToStorage();
+        this.render();
+        UI.hideModal(this.confirmModal);
+
+        UI.showListTypeSelection(this.listTypes, type => {
+          this.currentListType = type;
+          this._updateCategories();
+          this.render();
+        });
+      };
+    } else {
       UI.showListTypeSelection(this.listTypes, type => {
         this.currentListType = type;
         this._updateCategories();
         this.render();
       });
-    };
-    if (this.items.length > 0) {
-      UI.setText(this.confirmMsg, 'Criar nova lista? A lista atual será perdida.');
-      UI.showModal(this.confirmModal);
-      this.confirmOk.onclick = () => { UI.hideModal(this.confirmModal); proceed(); UI.showToast('Nova lista criada!'); };
-    } else { proceed(); }
+    }
   }
 
-  _showCompareDialog() {
-    const lists = Storage.getSavedLists();
-    if (lists.length < 2) { UI.showToast('Você precisa de pelo menos 2 listas salvas!'); return; }
-    this.compareList1.innerHTML = '<option value="">Selecione...</option>';
-    this.compareList2.innerHTML = '<option value="">Selecione...</option>';
-    lists.forEach((l, i) => {
-      this.compareList1.add(new Option(l.name, i));
-      this.compareList2.add(new Option(l.name, i));
-    });
-    document.getElementById('compareResults').innerHTML =
-      '<p style="color:var(--txt-3);font-size:.75rem;">Selecione duas listas para comparar.</p>';
+  async _showCompareDialog() {
+    const lists = await Storage.getSavedLists();
+    if (lists.length < 2) {
+      UI.showToast('Você precisa de pelo menos 2 listas salvas para comparar.');
+      return;
+    }
+
+    if(this.compareList1 && this.compareList2) {
+      this.compareList1.innerHTML = lists.map(l => `<option value="${l.id}">${l.name} (${l.purchase_date})</option>`).join('');
+      this.compareList2.innerHTML = lists.map(l => `<option value="${l.id}">${l.name} (${l.purchase_date})</option>`).join('');
+      this.compareList2.selectedIndex = 1;
+    }
     UI.showModal(this.compareModal);
   }
 
-  _executeComparison() {
-    const i1 = this.compareList1.value, i2 = this.compareList2.value;
-    if (!i1 || !i2 || i1 === i2) { UI.showToast('Selecione duas listas diferentes!'); return; }
-    const lists = Storage.getSavedLists();
-    UI.renderComparisonResults(_compareLists(lists[i1].items, lists[i2].items), lists[i1].name, lists[i2].name);
-  }
+  async _executeComparison() {
+    if(!this.compareList1 || !this.compareList2) return;
 
-  // ── RENDER ────────────────────────────────────────────────────
-  render() {
-    const filtered = this._getFiltered();
-    UI.renderItems(
-      this.items, filtered,
-      {
-        onToggle:  idx => this.toggleItem(idx),
-        onEdit:    idx => this.editItem(idx),
-        onDelete:  idx => this.deleteItem(idx),
-        onHistory: idx => this.showPriceHistory(idx),
-      },
-      Calculator.formatPrice,
-      Calculator.calculateUnitPrice,
-      item => this._getTrend(item),
-      cat  => this._getCatEmoji(cat)
-    );
-    UI.renderStats(this.items, Calculator.calculateTotals(this.items), Calculator.formatPrice);
-    UI.renderEmptyState(filtered);
-  }
+    const id1 = this.compareList1.value;
+    const id2 = this.compareList2.value;
 
-  _getTrend(item) {
-    const price = item.priceWholesale > 0 ? item.priceWholesale : item.priceRetail;
-    if (!price) return null;
-    const history = Storage.getPriceHistory(item.name);
-    return Calculator.priceTrend(price, history.slice(0, -1));
+    if (id1 === id2) {
+      UI.showToast('Selecione listas diferentes para comparar.');
+      return;
+    }
+
+    const lists = await Storage.getSavedLists();
+    const list1 = lists.find(l => l.id === id1);
+    const list2 = lists.find(l => l.id === id2);
+
+    const result = _compareLists(list1.list_items, list2.list_items);
+    UI.renderComparisonResult(result, list1.name, list2.name);
+    UI.hideModal(this.compareModal);
   }
 
   _updateCategories() {
-    const all = { ..._getCategoriesForType(this.currentListType), ...Storage.getCustomCategories(this.currentListType) };
+    if(!this.categorySelect) return;
+
+    const baseCats = _getCategoriesForType(this.currentListType);
+    const customCats = this.customCategories.filter(c => c.list_type === this.currentListType);
+
     this.categorySelect.innerHTML = '';
-    Object.entries(all).forEach(([name, emoji]) => {
+
+    Object.keys(baseCats).forEach(cat => {
       const opt = document.createElement('option');
-      opt.value = name; opt.textContent = `${emoji} ${name}`;
+      opt.value = cat;
+      opt.textContent = `${baseCats[cat]} ${cat}`;
+
+
       this.categorySelect.appendChild(opt);
     });
+
+    if (customCats.length > 0) {
+      const group = document.createElement('optgroup');
+      group.label = 'Personalizadas';
+      customCats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = `${c.emoji} ${c.name}`;
+        group.appendChild(opt);
+      });
+      this.categorySelect.appendChild(group);
+    }
   }
 
-  _getCatEmoji(category) {
-    const all = { ..._getCategoriesForType(this.currentListType), ...Storage.getCustomCategories(this.currentListType) };
-    return all[category] || '📦';
+  _getCatEmoji(cat) {
+    const baseCats = _getCategoriesForType(this.currentListType);
+    if (baseCats[cat]) return baseCats[cat];
+    const custom = this.customCategories.find(c => c.name === cat && c.list_type === this.currentListType);
+    return custom ? custom.emoji : '📦';
   }
 
-  _saveToStorage() { Storage.saveCurrentList(this.items, this.currentListName, this.currentListType); }
-  _loadFromStorage() {
-    const saved = Storage.loadCurrentList();
-    if (!saved) return;
-    this.items           = saved.items    || [];
-    this.currentListName = saved.name     || 'Lista Atual';
-    this.currentListType = saved.listType || 'Supermercado';
-    if (this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
-    this._updateCategories?.();
+  async _saveToStorage() {
+    await Storage.saveCurrentList(this.items);
   }
 
-  getStorageData()    { return Storage.getRaw();    }
-  saveStorageData(d)  { Storage.saveRaw(d);         }
-  showToast(msg)      { UI.showToast(msg);           }
-  showModal(m)        { UI.showModal(m);             }
-  hideModal(m)        { UI.hideModal(m);             }
-}
+  async _loadFromStorage() {
+    const draftItems = await Storage.getCurrentList();
+    this.items = draftItems.map(i => ({
+      id: i.id,
+      name: i.name,
+      category: i.category,
+      quantity: i.quantity,
+      unit: i.unit,
+      priceWholesale: i.wholesale_price,
+      priceRetail: i.retail_price,
+      completed: i.completed
+    }));
+  }
 
-// ── INICIALIZAÇÃO ───────────────────────────────────────────────
+  async render() {
+    const filtered = this._getFiltered();
+    const totals = Calculator.calculateTotals(this.items);
+
+    UI.renderItems(filtered, {
+      onToggle: idx => this.toggleItem(idx),
+      onEdit: idx => this.editItem(idx),
+      onDelete: idx => this.deleteItem(idx),
+      onHistory: idx => this.showPriceHistory(idx),
+      getEmoji: cat => this._getCatEmoji(cat)
+    });
+
+    UI.updateTotals(totals);
+    UI.updateProgress(this.items);
+
+        // ── ATUALIZAÇÃO DO DASHBOARD E MINI CARDS ──
+    const dashboardData = await Storage.getDashboardData();
+    if (dashboardData) {
+      // 1. Atualiza a tela de Dashboard (se estiver aberta)
+      const budgetEl = document.getElementById('dashBudget');
+      const spentEl = document.getElementById('dashSpent');
+      const progressFillEl = document.getElementById('dashProgressFill');
+      const progressTextEl = document.getElementById('dashProgressText');
+
+      if (budgetEl) budgetEl.textContent = `R$ ${dashboardData.budget.toFixed(2).replace('.', ',')}`;
+      if (spentEl) spentEl.textContent = `R$ ${dashboardData.totalSpent.toFixed(2).replace('.', ',')}`;
+
+      if (progressFillEl) {
+        progressFillEl.style.width = `${dashboardData.percentage}%`;
+        if (dashboardData.percentage >= 100) progressFillEl.style.backgroundColor = '#ef4444';
+        else if (dashboardData.percentage >= 80) progressFillEl.style.backgroundColor = '#f59e0b';
+        else progressFillEl.style.backgroundColor = '#10b981';
+      }
+      if (progressTextEl) progressTextEl.textContent = `${Math.round(dashboardData.percentage)}% da meta`;
+
+      // 2. Atualiza os Mini Cards na tela inicial (Index)
+      const miniDashContainer = document.getElementById('miniDashContainer');
+      const miniBudgetEl = document.getElementById('miniDashBudget');
+      const miniSpentEl = document.getElementById('miniDashSpent');
+      const miniSpentCard = document.getElementById('miniDashSpentCard');
+
+      if (miniDashContainer && miniBudgetEl && miniSpentEl && miniSpentCard) {
+        // Só exibe os cards se o usuário tiver definido uma meta maior que zero
+        if (dashboardData.budget > 0) {
+          miniDashContainer.style.display = 'flex';
+          miniBudgetEl.textContent = `R$ ${dashboardData.budget.toFixed(2).replace('.', ',')}`;
+          miniSpentEl.textContent = `R$ ${dashboardData.totalSpent.toFixed(2).replace('.', ',')}`;
+
+          // Limpa as classes de cor e aplica a nova baseada na porcentagem
+          miniSpentCard.classList.remove('status-good', 'status-warning', 'status-danger');
+
+          if (dashboardData.percentage >= 100) {
+            miniSpentCard.classList.add('status-danger');
+          } else if (dashboardData.percentage >= 80) {
+            miniSpentCard.classList.add('status-warning');
+          } else {
+            miniSpentCard.classList.add('status-good');
+          }
+        } else {
+          miniDashContainer.style.display = 'none';
+        }
+      }
+    }
+
+// ═══════════════════════════════════════════════════════════════
+// INICIALIZAÇÃO DA APLICAÇÃO
+// ═══════════════════════════════════════════════════════════════
 const app = new ShoppingList();
 
-// Funções globais auxiliares (usadas em onclick no HTML, se houver)
-function showModal(id) { const m = document.getElementById(id); if (m) UI.showModal(m); }
-function hideModal(id) { const m = document.getElementById(id); if (m) UI.hideModal(m); }
-function sendFeedback() {
-  const inp = document.getElementById('feedbackInput');
-  if (!inp?.value.trim()) { app.showToast('Digite seu feedback!'); return; }
-  const d = Storage.getRaw();
-  (d.feedbacks = d.feedbacks || []).push({
-    text: inp.value.trim(), date: new Date().toISOString(), user: d.currentUser || 'Anônimo',
-  });
-  Storage.saveRaw(d);
-  inp.value = '';
-  hideModal('feedbackForm');
-  app.showToast('Feedback enviado!');
-}
+// Aguarda o DOM carregar e o Supabase inicializar
+document.addEventListener('DOMContentLoaded', () => {
+  // Pequeno delay para garantir que o cliente do Supabase esteja pronto
+  setTimeout(() => {
+    app.initApp();
+  }, 500);
+});

@@ -416,6 +416,34 @@ const UI = (() => {
     container.appendChild(wrap);
   }
 
+  // ── Profile / Config Helpers ───────────────────────────────────
+
+  function fillConfigProfile(user) {
+    if (!user) return;
+    const nameInput = document.getElementById('profileName');
+    const photoInput = document.getElementById('profilePhotoUrl');
+
+    if (nameInput) {
+      nameInput.value = user.user_metadata?.apelido || user.user_metadata?.nome || user.email.split('@')[0] || '';
+    }
+    if (photoInput) {
+      photoInput.value = user.user_metadata?.avatar_url || '';
+    }
+  }
+
+  function getProfileFormData() {
+    return {
+      name: document.getElementById('profileName')?.value.trim(),
+      photoUrl: document.getElementById('profilePhotoUrl')?.value.trim(),
+      password: document.getElementById('profileNewPassword')?.value
+    };
+  }
+
+  function clearProfilePassword() {
+    const p = document.getElementById('profileNewPassword');
+    if (p) p.value = '';
+  }
+
   // ── Internal helper ────────────────────────────────────────────
   function _mkBtn(cls, label, handler) {
     const b = document.createElement('button');
@@ -432,5 +460,6 @@ const UI = (() => {
     renderItems, renderStats, renderEmptyState,
     renderHistory, renderCustomCategories,
     renderPriceHistoryModal, renderComparisonResults,
+    fillConfigProfile, getProfileFormData, clearProfilePassword
   };
 })();

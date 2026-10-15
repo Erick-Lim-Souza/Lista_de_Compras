@@ -16,6 +16,25 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Estilos para o olhinho da senha e abas de auth */
+    .password-wrapper { position: relative; }
+    .toggle-password {
+      position: absolute; right: 10px; top: 35px; cursor: pointer;
+      font-size: 1.2rem; user-select: none; opacity: 0.7;
+    }
+    .toggle-password:hover { opacity: 1; }
+    .auth-view { display: none; }
+    .auth-view.active { display: block; }
+    .auth-link {
+      color: var(--primary, #00C48C); cursor: pointer; text-decoration: underline;
+      font-size: 0.85rem; text-align: center; display: block; margin-top: 10px;
+    }
+    .terms-wrapper {
+      display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin-bottom: 15px;
+    }
+    .terms-wrapper input { width: auto; margin: 0; }
+  </style>
 </head>
 <body>
 <div class="container">
@@ -24,13 +43,12 @@
     <h1>🛒 Lista de Compras <span class="badge">v3.0</span></h1>
     <div class="header-actions">
       <button id="suggestButton" class="btn btn-secondary btn-sm suggest-btn" title="Sugestão automática baseada no ciclo de compras">💡 Sugestões</button>
-      <button id="historyButton" class="btn btn-secondary btn-sm">📋 Histórico</button>
       <button onclick="location.href='dashboard.html'" class="btn btn-secondary btn-sm" title="Dashboard de gastos">📊</button>
-      <button id="versionButton" class="btn btn-secondary btn-sm">ℹ️</button>
-      <button id="configButton"  class="btn btn-secondary btn-sm">⚙️</button>
       <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
         <span class="theme-icon">🌙</span>
       </button>
+      <!-- Botão de Menu Principal -->
+      <button id="mainMenuBtn" class="btn btn-secondary btn-sm" title="Menu Principal">☰</button>
     </div>
   </header>
 
@@ -55,6 +73,18 @@
       </div>
     </div>
   </div>
+
+  <!-- Mini Dashboard de Meta Mensal -->
+<div class="mini-dash-container" id="miniDashContainer" style="display: none;">
+  <div class="mini-dash-card">
+    <span class="mini-dash-label">Meta do Mês</span>
+    <span class="mini-dash-value" id="miniDashBudget">R$ 0,00</span>
+  </div>
+  <div class="mini-dash-card" id="miniDashSpentCard">
+    <span class="mini-dash-label">Já Gasto</span>
+    <span class="mini-dash-value" id="miniDashSpent">R$ 0,00</span>
+  </div>
+</div>
 
   <form class="input-form" id="itemForm">
     <div class="input-group" style="grid-template-columns:1fr">
@@ -144,9 +174,8 @@
 
   <div class="action-buttons">
     <div class="button-group">
-      <button id="clearAllButton"     class="btn btn-danger">🗑️ Limpar</button>
-      <button id="shareButton"        class="btn btn-secondary">📤 Compartilhar</button>
-      <button id="compareListsButton" class="btn btn-secondary">📊 Comparar</button>
+      <button id="clearAllButton" class="btn btn-danger">🗑️ Limpar</button>
+      <button id="shareButton"    class="btn btn-secondary">📤 Compartilhar</button>
     </div>
     <div class="export-buttons">
       <span class="export-label">Exportar lista</span>
@@ -156,14 +185,6 @@
         <button id="exportExcel" class="btn btn-export">CSV</button>
       </div>
     </div>
-    <div>
-      <span class="export-label">Backup de dados</span>
-      <div class="export-group">
-        <button id="backupDownload" class="btn btn-backup-dl">⬇ Baixar JSON</button>
-        <button id="backupUpload"   class="btn btn-backup-ul">⬆ Restaurar JSON</button>
-        <input  id="backupFileInput" type="file" accept=".json" style="display:none">
-      </div>
-    </div>
   </div>
 
   <footer class="footer">
@@ -171,11 +192,10 @@
     <div class="footer-main">
       <div class="footer-info">
         <span class="footer-brand">Lista de Compras Inteligente</span>
-        <p class="footer-copy">&copy; 2025 – 2026. Todos os direitos reservados.</p>
+        <p class="footer-copy">&copy;2025 Todos os direitos reservados.</p>
       </div>
       <div class="footer-credits">
-        <p>Desenvolvido por <a href="https://greenmonster.netlify.app/" target="_blank" class="footer-link">Erick de Lima Souza</a></p>
-        <span class="footer-project">Green Monster Project</span>
+        <p>By. <a href="https://greenmonster.netlify.app/" target="_blank" class="footer-link">Green Monster Project</a></p>
       </div>
     </div>
     <div class="footer-accent-bar"></div>
@@ -185,6 +205,164 @@
 </div>
 
 <!-- MODALS -->
+
+<!-- Modal do Menu Principal -->
+<div id="mainMenuModal" class="modal">
+  <div class="modal-content">
+
+    <!-- Seção de Perfil no Menu -->
+    <div class="menu-profile-section" style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
+      <div class="profile-avatar" style="width: 70px; height: 70px; border-radius: 50%; background-color: var(--primary, #00C48C); color: white; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 10px; overflow: hidden;">
+        <span id="menuUserInitials">👤</span>
+        <img id="menuUserPhoto" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="Foto do Usuário">
+      </div>
+      <h4 id="menuUserName" style="margin: 0; color: var(--txt-1); font-size: 1.2rem;">Visitante</h4>
+      <p id="menuUserEmail" style="margin: 5px 0 0; font-size: 0.85rem; color: var(--txt-2);">Faça login para sincronizar</p>
+    </div>
+
+    <!-- Seção de Meta Mensal -->
+<div class="config-section">
+  <h3>💰 Meta Mensal</h3>
+  <p class="config-desc" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+    Defina um limite de gastos para acompanhar no seu mini dashboard.
+  </p>
+  <div style="display: flex; gap: 10px;">
+    <input 
+      type="number" 
+      id="monthlyBudgetInput" 
+      placeholder="Ex: 1500,00" 
+      step="0.01" 
+      min="0"
+      style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);"
+    >
+    <button type="button" id="saveBudgetBtn" style="padding: 10px 15px; border-radius: 8px; background: var(--primary-color, #3b82f6); color: white; border: none; font-weight: bold; cursor: pointer;">
+      Salvar
+    </button>
+  </div>
+</div>
+
+    <div class="menu-list-container" style="display: flex; flex-direction: column; gap: 12px;">
+      <button id="historyButton" class="btn btn-secondary">📋 Histórico de Listas</button>
+      <button id="compareListsButton" class="btn btn-secondary">📊 Comparar Listas</button>
+      <button id="configButton" class="btn btn-secondary">⚙️ Configurações</button>
+      <button id="btnOpenLogin" class="btn btn-primary" style="display: block;">Entrar / Cadastrar</button>
+      <button id="btnLogout" class="btn btn-danger" style="display: none;">🚪 Sair da Conta</button>
+    </div>
+    <div class="modal-buttons" style="margin-top: 20px;">
+      <button id="mainMenuClose" class="btn btn-secondary">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Autenticação (Supabase) -->
+<div id="authModal" class="modal">
+  <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
+
+    <!-- VIEW DE LOGIN -->
+    <div id="loginView" class="auth-view active">
+      <h3>🛒 Entrar</h3>
+      <p style="color:var(--txt-2); font-size:0.9rem; margin-bottom:16px; text-align:center;">Acesse sua conta para sincronizar.</p>
+      <form id="loginForm" onsubmit="event.preventDefault();">
+        <div class="input-group" style="grid-template-columns:1fr; margin-bottom:12px;">
+          <div class="input-field">
+            <label for="loginEmail">E-mail</label>
+            <input type="email" id="loginEmail" placeholder="Seu e-mail" required>
+          </div>
+        </div>
+        <div class="input-group" style="grid-template-columns:1fr; margin-bottom:5px;">
+          <div class="input-field password-wrapper">
+            <label for="loginPassword">Senha</label>
+            <input type="password" id="loginPassword" placeholder="Sua senha" required>
+            <span class="toggle-password" onclick="togglePasswordVisibility('loginPassword', this)">👁️</span>
+          </div>
+        </div>
+        <div style="text-align: right; margin-bottom: 20px;">
+          <a class="auth-link" style="display:inline; margin:0;" onclick="switchAuthView('forgotView')">Esqueci a senha</a>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" id="btnLoginSubmit" class="btn btn-primary" style="width: 100%;">Entrar</button>
+        </div>
+        <a class="auth-link" onclick="switchAuthView('signupView')">Não tem conta? Cadastre-se</a>
+      </form>
+    </div>
+
+    <!-- VIEW DE CADASTRO -->
+    <div id="signupView" class="auth-view">
+      <h3>📝 Criar Conta</h3>
+      <form id="signupForm" onsubmit="event.preventDefault();">
+        <div class="input-group" style="margin-bottom:12px;">
+          <div class="input-field">
+            <label for="signupNome">Nome</label>
+            <input type="text" id="signupNome" placeholder="Seu nome" required>
+          </div>
+          <div class="input-field">
+            <label for="signupSobrenome">Sobrenome</label>
+            <input type="text" id="signupSobrenome" placeholder="Seu sobrenome" required>
+          </div>
+        </div>
+        <div class="input-group" style="grid-template-columns:1fr; margin-bottom:12px;">
+          <div class="input-field">
+            <label for="signupApelido">Apelido (Como quer ser chamado?)</label>
+            <input type="text" id="signupApelido" placeholder="Ex: Joãozinho" required>
+          </div>
+        </div>
+        <div class="input-group" style="grid-template-columns:1fr; margin-bottom:12px;">
+          <div class="input-field">
+            <label for="signupEmail">E-mail</label>
+            <input type="email" id="signupEmail" placeholder="Seu melhor e-mail" required>
+          </div>
+        </div>
+        <div class="input-group" style="grid-template-columns:1fr; margin-bottom:12px;">
+          <div class="input-field password-wrapper">
+            <label for="signupPassword">Senha</label>
+            <input type="password" id="signupPassword" placeholder="Mínimo 6 caracteres" required minlength="6">
+            <span class="toggle-password" onclick="togglePasswordVisibility('signupPassword', this)">👁️</span>
+          </div>
+        </div>
+        <div class="input-group" style="grid-template-columns:1fr; margin-bottom:15px;">
+          <div class="input-field password-wrapper">
+            <label for="signupConfirmPassword">Repetir Senha</label>
+            <input type="password" id="signupConfirmPassword" placeholder="Repita a senha" required minlength="6">
+            <span class="toggle-password" onclick="togglePasswordVisibility('signupConfirmPassword', this)">👁️</span>
+          </div>
+        </div>
+        <div class="terms-wrapper">
+          <input type="checkbox" id="signupTerms" required>
+          <label for="signupTerms">Li e aceito os Termos de Uso e Política de Privacidade.</label>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" id="btnSignupSubmit" class="btn btn-primary" style="width: 100%;">Criar Conta</button>
+        </div>
+        <a class="auth-link" onclick="switchAuthView('loginView')">Já tem conta? Entrar</a>
+      </form>
+    </div>
+
+    <!-- VIEW DE RECUPERAÇÃO DE SENHA -->
+    <div id="forgotView" class="auth-view">
+      <h3>🔑 Recuperar Senha</h3>
+      <p style="color:var(--txt-2); font-size:0.9rem; margin-bottom:16px; text-align:center;">Enviaremos um link para redefinir sua senha.</p>
+      <form id="forgotForm" onsubmit="event.preventDefault();">
+        <div class="input-group" style="grid-template-columns:1fr; margin-bottom:20px;">
+          <div class="input-field">
+            <label for="forgotEmail">E-mail</label>
+            <input type="email" id="forgotEmail" placeholder="Seu e-mail cadastrado" required>
+          </div>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" id="btnForgotSubmit" class="btn btn-primary" style="width: 100%;">Enviar Link</button>
+        </div>
+        <a class="auth-link" onclick="switchAuthView('loginView')">Voltar ao Login</a>
+      </form>
+    </div>
+
+    <!-- MENSAGENS E BOTÃO FECHAR GERAL -->
+    <p id="authMessage" style="text-align:center; font-size:0.85rem; margin-top:12px; min-height:20px;"></p>
+    <div class="modal-buttons" style="margin-top: 10px;">
+      <button type="button" id="authClose" class="btn btn-secondary" style="width: 100%;">Cancelar / Fechar</button>
+    </div>
+
+  </div>
+</div>
 
 <div id="compareModal" class="modal">
   <div class="modal-content modal-large">
@@ -277,26 +455,80 @@
   </div>
 </div>
 
+<!-- Área de Configurações Expandida -->
 <div id="configModal" class="modal">
-  <div class="modal-content">
+  <div class="modal-content" style="max-height: 85vh; overflow-y: auto;">
     <h3>⚙️ Configurações</h3>
-    <div class="config-content">
-      <div class="config-section">
-        <h4>Tipo de Lista → <span id="currentListTypeDisplay">Supermercado</span></h4>
-        <button id="changeListType" class="btn btn-secondary btn-sm">Alterar Tipo</button>
-      </div>
-      <div class="config-section">
-        <h4>Categorias Personalizadas</h4>
-        <div id="customCategoriesList" class="custom-categories"></div>
-        <div class="add-category-form">
-          <input type="text" id="newCategoryName"  placeholder="Nome..." maxlength="30">
-          <input type="text" id="newCategoryEmoji" placeholder="🍎" maxlength="2" style="max-width:68px;">
-          <button id="addCustomCategory" class="btn btn-primary btn-sm">+ Add</button>
+
+    <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
+      <h4 style="margin-bottom: 15px;">👤 Perfil & Conta</h4>
+
+      <div class="input-group" style="grid-template-columns:1fr; margin-bottom:10px;">
+        <div class="input-field">
+          <label for="profileName">Nome / Apelido</label>
+          <input type="text" id="profileName" placeholder="Como prefere ser chamado?">
         </div>
       </div>
+
+      <div class="input-group" style="grid-template-columns:1fr; margin-bottom:10px;">
+        <div class="input-field">
+          <label for="profilePhotoUrl">URL da Foto (Opcional)</label>
+          <input type="url" id="profilePhotoUrl" placeholder="https://link-da-sua-foto.com/foto.jpg">
+        </div>
+      </div>
+
+      <div class="input-group" style="grid-template-columns:1fr; margin-bottom:15px;">
+        <div class="input-field">
+          <label for="profileNewPassword">Nova Senha</label>
+          <input type="password" id="profileNewPassword" placeholder="Deixe em branco para não alterar">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="btnSaveProfile" class="btn btn-primary btn-sm">Salvar Perfil</button>
+        <button id="btnDeleteAccount" class="btn btn-danger btn-sm">Deletar Conta</button>
+      </div>
     </div>
-    <div class="modal-buttons">
-      <button id="configClose" class="btn btn-secondary">Fechar</button>
+
+    <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
+      <h4 style="margin-bottom: 10px;">⚙️ Gerais</h4>
+      <button id="btnGeneralSettings" class="btn btn-secondary btn-sm">Configurações Gerais</button>
+    </div>
+
+    <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
+      <h4 style="margin-bottom: 10px;">🗂️ Listas e Categorias</h4>
+      <p style="font-size: 0.85rem; margin-bottom: 8px; color: var(--txt-2);">Tipo de Lista → <strong id="currentListTypeDisplay" style="color: var(--txt-1);">Supermercado</strong></p>
+      <button id="changeListType" class="btn btn-secondary btn-sm" style="margin-bottom: 15px;">Alterar Tipo</button>
+
+      <h5 style="margin-bottom: 8px; font-size: 0.9rem;">Categorias Personalizadas</h5>
+      <div id="customCategoriesList" class="custom-categories"></div>
+      <div class="add-category-form">
+        <input type="text" id="newCategoryName"  placeholder="Nome..." maxlength="30">
+        <input type="text" id="newCategoryEmoji" placeholder="🍎" maxlength="2" style="max-width:68px;">
+        <button id="addCustomCategory" class="btn btn-primary btn-sm">+ Add</button>
+      </div>
+    </div>
+
+    <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
+      <h4 style="margin-bottom: 10px;">💾 Backup de Dados</h4>
+      <div class="export-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="backupDownload" class="btn btn-backup-dl">⬇ Baixar JSON</button>
+        <button id="backupUpload"   class="btn btn-backup-ul">⬆ Restaurar JSON</button>
+        <input  id="backupFileInput" type="file" accept=".json" style="display:none">
+      </div>
+    </div>
+
+    <div class="config-section" style="margin-bottom: 10px;">
+      <h4 style="margin-bottom: 10px;">ℹ️ Sobre o App</h4>
+      <p style="font-size: 0.85rem; margin-bottom: 10px; color: var(--txt-2);">Versão: <strong style="color: var(--txt-1);">v3.0</strong></p>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="versionButton" class="btn btn-secondary btn-sm">Notas da Versão</button>
+        <button id="btnInviteFriends" class="btn btn-secondary btn-sm">📢 Convidar Amigos</button>
+      </div>
+    </div>
+
+    <div class="modal-buttons" style="margin-top: 20px;">
+      <button id="configClose" class="btn btn-secondary">Voltar</button>
     </div>
   </div>
 </div>
@@ -311,24 +543,6 @@
     </div>
   </div>
 </div>
-
-  <!-- FEEDBACK -->
-  <!--
-<div id="allFeedbacksModal" class="modal">
-  <div class="modal-content">
-    <h3>📬 Feedbacks</h3>
-    <ul id="allFeedbacksList" style="text-align:left;"></ul>
-    <div class="modal-buttons">
-      <button onclick="hideModal('allFeedbacksModal')" class="btn btn-secondary">Fechar</button>
-    </div>
-  </div>
-</div>
-
-<div class="fab-area">
-  <button onclick="showModal('feedbackForm')" class="btn" title="Feedback">💬</button>
-</div>
--->
-<!-- PWA INSTALL + AUTO-UPDATE -->
 
 <!-- ══ SUGGESTION MODAL ══════════════════════════════════════════ -->
 <div id="suggestModal" class="modal">
@@ -420,9 +634,74 @@
         .catch(() => {})
     );
   }
+
+  // --- LÓGICA DE UI DO MENU E AUTH ---
+
+  // Função para alternar visualização da senha (olhinho)
+  function togglePasswordVisibility(inputId, iconElement) {
+    const input = document.getElementById(inputId);
+    if (input.type === "password") {
+      input.type = "text";
+      iconElement.textContent = "🙈";
+    } else {
+      input.type = "password";
+      iconElement.textContent = "👁️";
+    }
+  }
+
+  // Função para alternar entre Login, Cadastro e Recuperação
+  function switchAuthView(viewId) {
+    document.querySelectorAll('.auth-view').forEach(el => el.classList.remove('active'));
+    document.getElementById(viewId).classList.add('active');
+    const msgEl = document.getElementById('authMessage');
+    if(msgEl) msgEl.textContent = ''; // Limpa mensagens ao trocar de tela
+  }
+
+  // Lógica do Menu Principal
+  document.getElementById('mainMenuBtn').addEventListener('click', () => {
+    const menu = document.getElementById('mainMenuModal');
+    menu.classList.add('show', 'active', 'visible');
+    menu.style.display = 'flex';
+  });
+
+  document.getElementById('mainMenuClose').addEventListener('click', () => {
+    const menu = document.getElementById('mainMenuModal');
+    menu.classList.remove('show', 'active', 'visible');
+    menu.style.display = 'none';
+  });
+
+  // Fecha o menu principal ao clicar nas opções
+  ['historyButton', 'compareListsButton', 'configButton', 'btnOpenLogin'].forEach(id => {
+    const btn = document.getElementById(id);
+    if(btn) {
+      btn.addEventListener('click', () => {
+        const menu = document.getElementById('mainMenuModal');
+        menu.classList.remove('show', 'active', 'visible');
+        menu.style.display = 'none';
+      });
+    }
+  });
+
+  // Fechar modal de autenticação
+  document.getElementById('authClose').addEventListener('click', () => {
+    const authModal = document.getElementById('authModal');
+    if(authModal) {
+      authModal.classList.remove('show', 'active', 'visible');
+      authModal.style.display = 'none';
+    }
+  });
 </script>
 
-<!-- MODULES — load in dependency order -->
+<!-- 1. Biblioteca oficial do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- 2. Nosso cliente recém-criado -->
+<script src="js/supabase-client.js"></script>
+
+<!-- 3. Autenticação -->
+<script src="js/auth.js"></script>
+
+<!-- 4. Restante do seu app -->
 <script src="js/calculator.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/ui.js"></script>

@@ -1646,3 +1646,65 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opa
   --bgr-h: var(--bgr, #1a1f2e);
 }
 
+/* ─────────────────────────────────────────────────────────
+ * MINI DASHBOARD (INDEX)
+ * ───────────────────────────────────────────────────────── */
+.mini-dash-container {
+  display: flex;
+  gap: 12px;
+  margin: 15px 0;
+  padding: 0 10px;
+}
+
+.mini-dash-card {
+  flex: 1;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+}
+
+.mini-dash-label {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.mini-dash-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--text-color, #1e293b);
+}
+
+/* Cores dinâmicas para o card de gastos */
+.mini-dash-card.status-good {
+  border-bottom: 4px solid #10b981; /* Verde - Tranquilo */
+}
+
+.mini-dash-card.status-warning {
+  border-bottom: 4px solid #f59e0b; /* Laranja - Atenção (80%+) */
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.mini-dash-card.status-danger {
+  border-bottom: 4px solid #ef4444; /* Vermelho - Estourou (100%+) */
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.mini-dash-card.status-danger .mini-dash-value {
+  color: #ef4444;
+}
+
+/* Ajuste para o modo escuro, se necessário */
+[data-theme="dark"] .mini-dash-card {
+  background: var(--bg-card-dark, #1e293b);
+  border-color: var(--border-color-dark, #334155);
+}
