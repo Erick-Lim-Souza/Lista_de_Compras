@@ -17,21 +17,72 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <style>
-    /* Estilos para o olhinho da senha e abas de auth */
+    /* ============================================================
+       Modais ocultos por padrão — só aparecem com .show/.active/.visible
+       ============================================================ */
+    .modal { display: none; }
+
+    /* ============================================================
+       Campo de senha com botão de mostrar/ocultar (SVG)
+       ============================================================ */
     .password-wrapper { position: relative; }
+    .password-wrapper input { padding-right: 42px; }
+
     .toggle-password {
-      position: absolute; right: 10px; top: 35px; cursor: pointer;
-      font-size: 1.2rem; user-select: none; opacity: 0.7;
+      position: absolute;
+      right: 10px;
+      top: 35px;
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--txt-2, #888);
+      background: transparent;
+      border: none;
+      padding: 0;
+      border-radius: 4px;
+      transition: color .15s ease, background .15s ease;
+      user-select: none;
     }
-    .toggle-password:hover { opacity: 1; }
+    .toggle-password:hover {
+      color: var(--primary, #00C48C);
+      background: rgba(0,196,140,.08);
+    }
+    .toggle-password:focus-visible {
+      outline: 2px solid var(--primary, #00C48C);
+      outline-offset: 2px;
+    }
+    .toggle-password svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       Views de autenticação
+       ============================================================ */
     .auth-view { display: none; }
     .auth-view.active { display: block; }
+
     .auth-link {
-      color: var(--primary, #00C48C); cursor: pointer; text-decoration: underline;
-      font-size: 0.85rem; text-align: center; display: block; margin-top: 10px;
+      color: var(--primary, #00C48C);
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 0.85rem;
+      text-align: center;
+      display: block;
+      margin-top: 10px;
     }
+
     .terms-wrapper {
-      display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 15px;
     }
     .terms-wrapper input { width: auto; margin: 0; }
   </style>
@@ -47,7 +98,6 @@
       <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
         <span class="theme-icon">🌙</span>
       </button>
-      <!-- Botão de Menu Principal -->
       <button id="mainMenuBtn" class="btn btn-secondary btn-sm" title="Menu Principal">☰</button>
     </div>
   </header>
@@ -75,16 +125,16 @@
   </div>
 
   <!-- Mini Dashboard de Meta Mensal -->
-<div class="mini-dash-container" id="miniDashContainer" style="display: none;">
-  <div class="mini-dash-card">
-    <span class="mini-dash-label">Meta do Mês</span>
-    <span class="mini-dash-value" id="miniDashBudget">R$ 0,00</span>
+  <div class="mini-dash-container" id="miniDashContainer" style="display: none;">
+    <div class="mini-dash-card">
+      <span class="mini-dash-label">Meta do Mês</span>
+      <span class="mini-dash-value" id="miniDashBudget">R$ 0,00</span>
+    </div>
+    <div class="mini-dash-card" id="miniDashSpentCard">
+      <span class="mini-dash-label">Já Gasto</span>
+      <span class="mini-dash-value" id="miniDashSpent">R$ 0,00</span>
+    </div>
   </div>
-  <div class="mini-dash-card" id="miniDashSpentCard">
-    <span class="mini-dash-label">Já Gasto</span>
-    <span class="mini-dash-value" id="miniDashSpent">R$ 0,00</span>
-  </div>
-</div>
 
   <form class="input-form" id="itemForm">
     <div class="input-group" style="grid-template-columns:1fr">
@@ -188,29 +238,30 @@
   </div>
 
   <footer class="footer">
-  <div class="footer-container">
-    <div class="footer-main">
-      <div class="footer-info">
-        <span class="footer-brand">Lista de Compras Inteligente</span>
-        <p class="footer-copy">&copy;2025 Todos os direitos reservados.</p>
+    <div class="footer-container">
+      <div class="footer-main">
+        <div class="footer-info">
+          <span class="footer-brand">Lista de Compras Inteligente</span>
+          <p class="footer-copy">&copy;2025 Todos os direitos reservados.</p>
+        </div>
+        <div class="footer-credits">
+          <p>By. <a href="https://greenmonster.netlify.app/" target="_blank" class="footer-link">Green Monster Project</a></p>
+        </div>
       </div>
-      <div class="footer-credits">
-        <p>By. <a href="https://greenmonster.netlify.app/" target="_blank" class="footer-link">Green Monster Project</a></p>
-      </div>
+      <div class="footer-accent-bar"></div>
     </div>
-    <div class="footer-accent-bar"></div>
-  </div>
-</footer>
+  </footer>
 
 </div>
 
-<!-- MODALS -->
+<!-- ═══════════════════════════════════════════════════════
+     MODAIS
+     ═══════════════════════════════════════════════════════ -->
 
 <!-- Modal do Menu Principal -->
 <div id="mainMenuModal" class="modal">
   <div class="modal-content">
 
-    <!-- Seção de Perfil no Menu -->
     <div class="menu-profile-section" style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
       <div class="profile-avatar" style="width: 70px; height: 70px; border-radius: 50%; background-color: var(--primary, #00C48C); color: white; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 10px; overflow: hidden;">
         <span id="menuUserInitials">👤</span>
@@ -220,26 +271,25 @@
       <p id="menuUserEmail" style="margin: 5px 0 0; font-size: 0.85rem; color: var(--txt-2);">Faça login para sincronizar</p>
     </div>
 
-    <!-- Seção de Meta Mensal -->
-<div class="config-section">
-  <h3>💰 Meta Mensal</h3>
-  <p class="config-desc" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
-    Defina um limite de gastos para acompanhar no seu mini dashboard.
-  </p>
-  <div style="display: flex; gap: 10px;">
-    <input 
-      type="number" 
-      id="monthlyBudgetInput" 
-      placeholder="Ex: 1500,00" 
-      step="0.01" 
-      min="0"
-      style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);"
-    >
-    <button type="button" id="saveBudgetBtn" style="padding: 10px 15px; border-radius: 8px; background: var(--primary-color, #3b82f6); color: white; border: none; font-weight: bold; cursor: pointer;">
-      Salvar
-    </button>
-  </div>
-</div>
+    <div class="config-section">
+      <h3>💰 Meta Mensal</h3>
+      <p class="config-desc" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+        Defina um limite de gastos para acompanhar no seu mini dashboard.
+      </p>
+      <div style="display: flex; gap: 10px;">
+        <input
+          type="number"
+          id="monthlyBudgetInput"
+          placeholder="Ex: 1500,00"
+          step="0.01"
+          min="0"
+          style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);"
+        >
+        <button type="button" id="saveBudgetBtn" style="padding: 10px 15px; border-radius: 8px; background: var(--primary-color, #3b82f6); color: white; border: none; font-weight: bold; cursor: pointer;">
+          Salvar
+        </button>
+      </div>
+    </div>
 
     <div class="menu-list-container" style="display: flex; flex-direction: column; gap: 12px;">
       <button id="historyButton" class="btn btn-secondary">📋 Histórico de Listas</button>
@@ -273,7 +323,9 @@
           <div class="input-field password-wrapper">
             <label for="loginPassword">Senha</label>
             <input type="password" id="loginPassword" placeholder="Sua senha" required>
-            <span class="toggle-password" onclick="togglePasswordVisibility('loginPassword', this)">👁️</span>
+            <button type="button" class="toggle-password"
+                    aria-label="Mostrar senha"
+                    onclick="togglePasswordVisibility('loginPassword', this)"></button>
           </div>
         </div>
         <div style="text-align: right; margin-bottom: 20px;">
@@ -316,14 +368,18 @@
           <div class="input-field password-wrapper">
             <label for="signupPassword">Senha</label>
             <input type="password" id="signupPassword" placeholder="Mínimo 6 caracteres" required minlength="6">
-            <span class="toggle-password" onclick="togglePasswordVisibility('signupPassword', this)">👁️</span>
+            <button type="button" class="toggle-password"
+                    aria-label="Mostrar senha"
+                    onclick="togglePasswordVisibility('signupPassword', this)"></button>
           </div>
         </div>
         <div class="input-group" style="grid-template-columns:1fr; margin-bottom:15px;">
           <div class="input-field password-wrapper">
             <label for="signupConfirmPassword">Repetir Senha</label>
             <input type="password" id="signupConfirmPassword" placeholder="Repita a senha" required minlength="6">
-            <span class="toggle-password" onclick="togglePasswordVisibility('signupConfirmPassword', this)">👁️</span>
+            <button type="button" class="toggle-password"
+                    aria-label="Mostrar senha"
+                    onclick="togglePasswordVisibility('signupConfirmPassword', this)"></button>
           </div>
         </div>
         <div class="terms-wrapper">
@@ -355,7 +411,6 @@
       </form>
     </div>
 
-    <!-- MENSAGENS E BOTÃO FECHAR GERAL -->
     <p id="authMessage" style="text-align:center; font-size:0.85rem; margin-top:12px; min-height:20px;"></p>
     <div class="modal-buttons" style="margin-top: 10px;">
       <button type="button" id="authClose" class="btn btn-secondary" style="width: 100%;">Cancelar / Fechar</button>
@@ -415,7 +470,6 @@
 
       <input type="text" id="listNameInput" placeholder="Nome da lista..." maxlength="50">
 
-      <!-- Date + Market row -->
       <div class="save-meta-row">
         <div class="save-meta-field">
           <label class="meta-label">📅 Data da compra</label>
@@ -437,7 +491,6 @@
         </div>
       </div>
 
-      <!-- Payment: simple by default, splittable -->
       <div class="pay-section">
         <div class="pay-section-header">
           <span class="meta-label">💳 Pagamento</span>
@@ -478,9 +531,12 @@
       </div>
 
       <div class="input-group" style="grid-template-columns:1fr; margin-bottom:15px;">
-        <div class="input-field">
+        <div class="input-field password-wrapper">
           <label for="profileNewPassword">Nova Senha</label>
           <input type="password" id="profileNewPassword" placeholder="Deixe em branco para não alterar">
+          <button type="button" class="toggle-password"
+                  aria-label="Mostrar senha"
+                  onclick="togglePasswordVisibility('profileNewPassword', this)"></button>
         </div>
       </div>
 
@@ -587,36 +643,62 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════
+     SCRIPTS
+     ═══════════════════════════════════════════════════════ -->
+
+<!-- 1. Biblioteca oficial do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- 2. Cliente Supabase -->
+<script src="js/supabase-client.js"></script>
+
+<!-- 3. Autenticação -->
+<script src="js/auth.js"></script>
+
+<!-- 4. Restante do app -->
+<script src="js/calculator.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/export.js"></script>
+
+<!-- 5. Inline: apenas PWA, SW e helpers de auth (sem duplicar listeners do app.js) -->
 <script>
+  /* ============================================================
+     PWA — INSTALAÇÃO
+     ============================================================ */
   let _deferredInstall = null;
 
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     _deferredInstall = e;
     if (localStorage.getItem('pwa-dismissed') === '1') return;
-    document.getElementById('installBanner').classList.add('visible');
+    document.getElementById('installBanner')?.classList.add('visible');
   });
 
-  document.getElementById('installBtn').addEventListener('click', async () => {
+  document.getElementById('installBtn')?.addEventListener('click', async () => {
     if (_deferredInstall) {
       _deferredInstall.prompt();
       await _deferredInstall.userChoice;
       _deferredInstall = null;
-      document.getElementById('installBanner').classList.remove('visible');
+      document.getElementById('installBanner')?.classList.remove('visible');
     } else {
       alert('Para instalar no iPhone/iPad:\n\n1. Toque em Compartilhar ↑\n2. "Adicionar à Tela Inicial"\n3. Confirme tocando em "Adicionar"');
     }
   });
 
-  document.getElementById('installDismiss').addEventListener('click', () => {
-    document.getElementById('installBanner').classList.remove('visible');
+  document.getElementById('installDismiss')?.addEventListener('click', () => {
+    document.getElementById('installBanner')?.classList.remove('visible');
     localStorage.setItem('pwa-dismissed', '1');
   });
 
   window.addEventListener('appinstalled', () =>
-    document.getElementById('installBanner').classList.remove('visible')
+    document.getElementById('installBanner')?.classList.remove('visible')
   );
 
+  /* ============================================================
+     SERVICE WORKER
+     ============================================================ */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () =>
       navigator.serviceWorker.register('./sw.js')
@@ -635,77 +717,79 @@
     );
   }
 
-  // --- LÓGICA DE UI DO MENU E AUTH ---
+  /* ============================================================
+     ÍCONES SVG — mostrar/ocultar senha
+     ============================================================ */
+  const SVG_EYE_OPEN = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    </svg>`;
 
-  // Função para alternar visualização da senha (olhinho)
-  function togglePasswordVisibility(inputId, iconElement) {
+  const SVG_EYE_OFF = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+      <line x1="1" y1="1" x2="23" y2="23"></line>
+    </svg>`;
+
+  /* ============================================================
+     HELPERS GLOBAIS DE AUTH
+     ============================================================ */
+
+  /**
+   * Alterna visibilidade da senha.
+   * Quando o campo está como password, mostra o ícone "olho aberto" (clicar = mostrar).
+   * Quando o campo está como text, mostra o ícone "olho cortado" (clicar = ocultar).
+   */
+  window.togglePasswordVisibility = function (inputId, btnEl) {
     const input = document.getElementById(inputId);
-    if (input.type === "password") {
-      input.type = "text";
-      iconElement.textContent = "🙈";
-    } else {
-      input.type = "password";
-      iconElement.textContent = "👁️";
-    }
-  }
+    if (!input || !btnEl) return;
 
-  // Função para alternar entre Login, Cadastro e Recuperação
-  function switchAuthView(viewId) {
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+
+    btnEl.innerHTML = isHidden ? SVG_EYE_OFF : SVG_EYE_OPEN;
+    btnEl.setAttribute('aria-label', isHidden ? 'Ocultar senha' : 'Mostrar senha');
+    btnEl.setAttribute('title',      isHidden ? 'Ocultar senha' : 'Mostrar senha');
+  };
+
+  /**
+   * Alterna entre as views de login / cadastro / recuperação.
+   */
+  window.switchAuthView = function (viewId) {
     document.querySelectorAll('.auth-view').forEach(el => el.classList.remove('active'));
-    document.getElementById(viewId).classList.add('active');
+    document.getElementById(viewId)?.classList.add('active');
     const msgEl = document.getElementById('authMessage');
-    if(msgEl) msgEl.textContent = ''; // Limpa mensagens ao trocar de tela
-  }
+    if (msgEl) msgEl.textContent = '';
+  };
 
-  // Lógica do Menu Principal
-  document.getElementById('mainMenuBtn').addEventListener('click', () => {
-    const menu = document.getElementById('mainMenuModal');
-    menu.classList.add('show', 'active', 'visible');
-    menu.style.display = 'flex';
+  /* ============================================================
+     Inicializa os ícones dos botões de senha no DOM pronto
+     ============================================================ */
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.toggle-password').forEach(btn => {
+      btn.innerHTML = SVG_EYE_OPEN;
+      btn.setAttribute('aria-label', 'Mostrar senha');
+      btn.setAttribute('title', 'Mostrar senha');
+    });
   });
 
-  document.getElementById('mainMenuClose').addEventListener('click', () => {
-    const menu = document.getElementById('mainMenuModal');
-    menu.classList.remove('show', 'active', 'visible');
-    menu.style.display = 'none';
-  });
-
-  // Fecha o menu principal ao clicar nas opções
-  ['historyButton', 'compareListsButton', 'configButton', 'btnOpenLogin'].forEach(id => {
-    const btn = document.getElementById(id);
-    if(btn) {
-      btn.addEventListener('click', () => {
-        const menu = document.getElementById('mainMenuModal');
-        menu.classList.remove('show', 'active', 'visible');
-        menu.style.display = 'none';
-      });
-    }
-  });
-
-  // Fechar modal de autenticação
-  document.getElementById('authClose').addEventListener('click', () => {
+  /* ============================================================
+     Fechar modal de auth — respeita o "login forçado"
+     ============================================================ */
+  document.getElementById('authClose')?.addEventListener('click', () => {
     const authModal = document.getElementById('authModal');
-    if(authModal) {
-      authModal.classList.remove('show', 'active', 'visible');
-      authModal.style.display = 'none';
-    }
+    if (!authModal) return;
+    if (authModal.hasAttribute('data-force')) return; // login obrigatório
+
+    authModal.classList.remove('show', 'active', 'visible');
+    authModal.style.display = 'none';
   });
 </script>
 
-<!-- 1. Biblioteca oficial do Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<!-- 2. Nosso cliente recém-criado -->
-<script src="js/supabase-client.js"></script>
-
-<!-- 3. Autenticação -->
-<script src="js/auth.js"></script>
-
-<!-- 4. Restante do seu app -->
-<script src="js/calculator.js"></script>
-<script src="js/storage.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/export.js"></script>
+<!-- 6. O app principal SEMPRE por último -->
 <script src="js/app.js"></script>
 </body>
 </html>

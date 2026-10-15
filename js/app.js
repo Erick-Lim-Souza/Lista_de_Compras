@@ -1,461 +1,66 @@
-/**
- * js/app.js
- * ─────────────────────────────────────────────────────────────
- * Orquestrador da Aplicação (O "Cérebro").
- * Atualizado para trabalhar de forma assíncrona com o Supabase.
- * Conectado ao novo Menu Lateral, Configurações, Submenus e DASHBOARD.
- * ─────────────────────────────────────────────────────────────
- */
+/* ============================================================
+   app.js :: Lista de Compras Inteligente (v3.0)
+   Força login antes do acesso.
+   ============================================================ */
 
-'use strict';
+class ShoppingList {
+  constructor() {
+    this.supabase = window.supabaseClient?.Auth || null;
+    this.items = [];
+    this.currentListType = 'Supermercado';
+    this.listTypes = {
+      Supermercado:        { emoji: '🛒', categories: ['Alimentos','Hortifruti','Carnes','Limpeza','Higiene','Bebidas','Outros'] },
+      'Feira livre':       { emoji: '🥦', categories: ['Hortifruti','Carnes','Outros'] },
+      Farmácia:            { emoji: '💊', categories: ['Higiene','Outros'] },
+      Petshop:             { emoji: '🐾', categories: ['Alimentos','Higiene','Outros'] },
+      'Material escolar':  { emoji: '✏️', categories: ['Papelaria','Outros'] },
+    };
+    this.customCategories   = [];
+    this.priceHistoryCache  = {};
+    this.monthlyBudget      = 0;
+    this.filter             = 'all';
+    this.savedListsMeta     = [];
+    this.activeListId       = null;
+    this.suggestionManager  = null;
+    this.user               = null;
 
-// ═══════════════════════════════════════════════════════════════
-// MAPEAMENTO DE CATEGORIAS
-// ═══════════════════════════════════════════════════════════════
-const LIST_CATEGORIES = {
-  'Supermercado':  { 'Alimentos':'🍎','Hortifruti':'🥦','Ovo':'🥚','Carnes':'🍖','Limpeza':'🧽','Higiene':'🧴','Bebidas':'🥤','Outros':'📦' },
-  'Feira Livre':   { 'Alimentos':'🍎','Hortifruti':'🥦','Ovo':'🥚','Carnes':'🍖','Limpeza':'🧽','Higiene':'🧴','Bebidas':'🥤','Outros':'📦' },
-  'Açougue':       { 'Carne Bovina':'🐄','Carne Frango':'🐔','Carne Suína':'🐖','Carne Peixe':'🐟','Carne Javali':'🐗','Ovo':'🥚','Outros':'📦' },
-  'Roupas':        { 'Camisetas':'👕','Calças':'👖','Sapatos':'👟','Acessórios':'👜','Íntimas':'🩲','Outros':'📦' },
-  'Farmácia':      { 'Medicamentos':'💊','Higiene':'🧴','Cosméticos':'💄','Vitaminas':'🍯','Primeiros Socorros':'🩹','Outros':'📦' },
-  'Eletrônicos':   { 'Smartphones':'📱','Computadores':'💻','Acessórios':'🔌','Games':'🎮','Audio/Video':'🎧','Outros':'📦' },
-  'Casa e Jardim': { 'Móveis':'🪑','Decoração':'🖼️','Ferramentas':'🔧','Jardim':'🌱','Limpeza':'🧽','Outros':'📦' },
-};
-
-function _getCategoriesForType(type) {
-  return LIST_CATEGORIES[type] || LIST_CATEGORIES['Supermercado'];
-}
-
-function _compareLists(items1, items2) {
-  const common = [], onlyInList1 = [], onlyInList2 = [];
-  items1.forEach(i1 => {
-    const found = items2.find(i2 =>
-      i1.name.toLowerCase() === i2.name.toLowerCase() && i1.category === i2.category);
-    found ? common.push({ item1: i1, item2: found }) : onlyInList1.push(i1);
-  });
-  items2.forEach(i2 => {
-    if (!items1.find(i1 => i1.name.toLowerCase() === i2.name.toLowerCase() && i1.category === i2.category))
-      onlyInList2.push(i2);
-  });
-  return { common, onlyInList1, onlyInList2 };
-}
-
-// ═══════════════════════════════════════════════════════════════
-// SUGGESTION MANAGER
-// ═══════════════════════════════════════════════════════════════
-const SuggestionManager = (() => {
-  const LIST_TYPE_ICONS = {
-    'Supermercado':  '🛒', 'Feira Livre':   '🥕', 'Açougue':       '🍖',
-    'Farmácia':      '💊', 'Roupas':        '👕', 'Eletrônicos':   '📱', 'Casa e Jardim': '🏠',
-  };
-  const URGENCY_LABELS = { overdue: '⚠️ Acabou', soon: '🔔 Acabando', ok: '✅ Ok', unknown: '❓ Novo' };
-
-  let _allProducts = [];
-  let _selected    = new Set();
-  let _activeType  = 'Todos';
-
-  function _renderTabs() {
-    const wrap = document.getElementById('suggestTypeTabs');
-    if (!wrap) return;
-
-    const groups = {};
-    _allProducts.forEach(p => {
-      groups[p.listType] = groups[p.listType] || { overdue: 0, soon: 0, total: 0 };
-      groups[p.listType].total++;
-      if (p.urgency === 'overdue') groups[p.listType].overdue++;
-      else if (p.urgency === 'soon') groups[p.listType].soon++;
-    });
-
-    const types = ['Todos', ...Object.keys(groups).sort()];
-    const totalUrgent = _allProducts.filter(p => p.urgency === 'overdue' || p.urgency === 'soon').length;
-
-    wrap.innerHTML = types.map(t => {
-      const ico = LIST_TYPE_ICONS[t] || '📋';
-      const cnt = t === 'Todos' ? totalUrgent : (groups[t]?.overdue || 0) + (groups[t]?.soon || 0);
-      const total = t === 'Todos' ? _allProducts.length : (groups[t]?.total || 0);
-      return `<button class="stype-tab${t === _activeType ? ' active' : ''}"
-        data-type="${t}">
-        ${t === 'Todos' ? '📋' : ico} ${t}
-        <span class="stab-count">${cnt > 0 ? cnt : total}</span>
-      </button>`;
-    }).join('');
-
-    wrap.querySelectorAll('.stype-tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _activeType = btn.dataset.type;
-        _renderTabs(); _renderSummary(); _renderList();
-      });
-    });
+    // Guards para evitar inicialização/duplicação de listeners
+    this._elementsBound = false;
+    this._eventsBound   = false;
+    this._initialized   = false;
   }
 
-  function _renderSummary() {
-    const el = document.getElementById('suggestSummary');
-    if (!el) return;
-    const filtered = _filtered();
-    const counts = { overdue: 0, soon: 0, ok: 0, unknown: 0 };
-    filtered.forEach(p => counts[p.urgency]++);
-    const chips = [
-      { key: 'overdue', label: `⚠️ ${counts.overdue} vencido${counts.overdue !== 1 ? 's' : ''}` },
-      { key: 'soon',    label: `🔔 ${counts.soon} acabando` },
-      { key: 'ok',      label: `✅ ${counts.ok} em dia` },
-      { key: 'unknown', label: `❓ ${counts.unknown} novo${counts.unknown !== 1 ? 's' : ''}` },
-    ].filter(c => counts[c.key] > 0);
-    el.innerHTML = chips.map(c => `<span class="ssum-chip ${c.key}">${c.label}</span>`).join('');
-
-    const selAllBtn = document.getElementById('suggestSelectAll');
-    if (selAllBtn) {
-      const hasUrgent = counts.overdue + counts.soon > 0;
-      selAllBtn.textContent = hasUrgent ? '☑ Todos urgentes' : '☑ Selecionar todos';
-    }
-  }
-
-  function _filtered() {
-    if (_activeType === 'Todos') return _allProducts;
-    return _allProducts.filter(p => p.listType === _activeType);
-  }
-
-  function _confidence(occurrences) {
-    if (occurrences >= 7) return { dots: '●●●', label: 'alta',  cls: 'conf-high' };
-    if (occurrences >= 4) return { dots: '●●○', label: 'média', cls: 'conf-mid'  };
-    if (occurrences >= 2) return { dots: '●○○', label: 'baixa', cls: 'conf-low'  };
-    return                        { dots: '○○○', label: 'novo',  cls: 'conf-none' };
-  }
-
-  function _renderList() {
-    const el = document.getElementById('suggestList');
-    if (!el) return;
-    const items = _filtered();
-    el.innerHTML = '';
-
-    if (!items.length) {
-      const nd = document.createElement('div');
-      nd.className = 'suggest-nd';
-      nd.innerHTML = `<span class="suggest-nd-icon">🔍</span>
-        Nenhum produto encontrado para este tipo de lista.<br>
-        Salve mais listas para o app aprender seus ciclos.`;
-      el.appendChild(nd);
+  // ─────────────── INICIALIZAÇÃO ───────────────
+  async initApp() {
+    // 1. Força autenticação (se não logado, não continua)
+    const user = await this._checkAuth();
+    if (!user) {
+      this._forceAuth();
       return;
     }
 
-    items.forEach(p => {
-      const sel = _selected.has(p.norm);
-      const pctCapped = Math.min((p.pct || 0) * 100, 100);
-      const conf = _confidence(p.occurrences);
-      const urgency = p.urgency;
-      const qtyStr = `${p.lastQty} ${p.lastUnit || 'un'}`;
-      const priceStr = p.lastPrice > 0 ? `R$${p.lastPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · ` : '';
-
-      const row = document.createElement('div');
-      row.className = `sug-item urgency-${urgency}${sel ? ' selected' : ''}`;
-      row.dataset.norm = p.norm;
-
-      const checkDiv = document.createElement('div');
-      checkDiv.className = 'sug-check';
-      checkDiv.textContent = sel ? '✓' : '';
-
-      const infoDiv = document.createElement('div');
-      infoDiv.className = 'sug-info';
-
-      const nameDiv = document.createElement('div');
-      nameDiv.className = 'sug-name';
-      nameDiv.textContent = p.name;
-
-      const confSpan = document.createElement('span');
-      confSpan.className = `sug-conf ${conf.cls}`;
-      confSpan.title = `Confiança ${conf.label} (${p.occurrences}×)`;
-      confSpan.textContent = conf.dots;
-      nameDiv.appendChild(confSpan);
-
-      const metaDiv = document.createElement('div');
-      metaDiv.className = 'sug-meta';
-      metaDiv.textContent = `${LIST_TYPE_ICONS[p.listType] || '📋'} ${p.listType} · ${p.category} · ciclo ~${p.avgDays || '?'}d · ${urgency === 'overdue' ? 'acabou' : urgency === 'soon' ? 'acabando' : 'em dia'}`;
-
-      const detailDiv = document.createElement('div');
-      detailDiv.className = 'sug-detail';
-      detailDiv.textContent = `${priceStr}${qtyStr} · ${p.occurrences}× comprado`;
-
-      infoDiv.appendChild(nameDiv); infoDiv.appendChild(metaDiv); infoDiv.appendChild(detailDiv);
-
-      const badge = document.createElement('span');
-      badge.className = `sug-urgency-badge ${urgency}`;
-      badge.textContent = URGENCY_LABELS[urgency];
-
-      const progDiv = document.createElement('div');
-      progDiv.className = 'sug-progress';
-      const pctSpan = document.createElement('span');
-      pctSpan.className = 'sug-pct';
-      pctSpan.textContent = p.avgDays ? Math.round(p.pct * 100) + '%' : '?';
-      const barBg = document.createElement('div');
-      barBg.className = 'sug-bar-bg';
-      const barFill = document.createElement('div');
-      barFill.className = `sug-bar-fill ${urgency}`;
-      barFill.style.width = pctCapped + '%';
-      barBg.appendChild(barFill);
-      progDiv.appendChild(pctSpan); progDiv.appendChild(barBg);
-
-      row.appendChild(checkDiv); row.appendChild(infoDiv); row.appendChild(badge); row.appendChild(progDiv);
-      row.addEventListener('click', () => _toggleItem(p.norm, row));
-      el.appendChild(row);
-    });
-  }
-
-  function _toggleItem(norm, rowEl) {
-    if (_selected.has(norm)) {
-      _selected.delete(norm);
-      rowEl.classList.remove('selected');
-      rowEl.querySelector('.sug-check').textContent = '';
-    } else {
-      _selected.add(norm);
-      rowEl.classList.add('selected');
-      rowEl.querySelector('.sug-check').textContent = '✓';
+    // 2. Captura referências DOM (apenas uma vez)
+    if (!this._elementsBound) {
+      this._bindElements();
+      this._elementsBound = true;
     }
-    _updateCreateBtn();
-  }
 
-  function _updateCreateBtn() {
-    const btn  = document.getElementById('suggestCreate');
-    const hint = document.getElementById('suggestCreateHint');
-    if (!btn) return;
-    const n = _selected.size;
-    if (n > 0) {
-      btn.textContent = `✚ Criar Lista (${n} item${n !== 1 ? 's' : ''})`;
-      btn.disabled = false;
-      if (hint) hint.style.display = 'none';
-    } else {
-      btn.textContent = '✚ Criar Lista';
-      btn.disabled = true;
-      if (hint) hint.style.display = 'block';
-    }
-  }
-
-  function open(savedLists) {
-    _selected.clear();
-    _activeType = 'Todos';
-    _allProducts = Calculator.analyzeAllProducts(savedLists, { minOccurrences: 1 });
-    _renderTabs(); _renderSummary(); _renderList(); _updateCreateBtn();
-  }
-
-  function selectAllUrgent() {
-    const filtered = _filtered();
-    let toSelect = filtered.filter(p => p.urgency === 'overdue' || p.urgency === 'soon');
-    if (toSelect.length === 0) toSelect = filtered;
-    toSelect.forEach(p => _selected.add(p.norm));
-    _renderList(); _updateCreateBtn();
-  }
-
-  function clearAll() {
-    _selected.clear(); _renderList(); _updateCreateBtn();
-  }
-
-  function createList() {
-    if (!_selected.size) return null;
-    const chosen = _allProducts.filter(p => _selected.has(p.norm));
-    const byType = {};
-    chosen.forEach(p => { byType[p.listType] = byType[p.listType] || []; byType[p.listType].push(p); });
-
-    const types = Object.keys(byType);
-    const buildItems = (products) => products.map(p => ({
-      id:             Calculator.generateId(),
-      name:           p.name,
-      category:       p.category || 'Outros',
-      quantity:       p.lastQty  || 1,
-      unit:           p.lastUnit || 'un',
-      priceWholesale: 0,
-      priceRetail:    0,
-      completed:      false,
-    }));
-
-    if (types.length === 1) return { multi: false, listType: types[0], items: buildItems(byType[types[0]]), byType };
-
-    const listsByType = {};
-    types.forEach(t => { listsByType[t] = buildItems(byType[t]); });
-
-    const dominantType = types.sort((a, b) => {
-      const urgScore = p => ({ overdue: 3, soon: 2, ok: 1, unknown: 0 }[p.urgency] || 0);
-      const scoreA = byType[a].reduce((s, p) => s + urgScore(p), 0);
-      const scoreB = byType[b].reduce((s, p) => s + urgScore(p), 0);
-      return scoreB - scoreA || byType[b].length - byType[a].length;
-    })[0];
-
-    return { multi: true, listType: dominantType, items: buildItems(byType[dominantType]), byType, listsByType };
-  }
-
-  function showMultiTypeDialog(result, onChoice) {
-    const types = Object.keys(result.byType).sort();
-    const modal = document.getElementById('multiTypeModal');
-    if (!modal) { onChoice(null); return; }
-
-    const list = document.getElementById('multiTypeList');
-    list.innerHTML = '';
-
-    types.forEach(type => {
-      const products = result.byType[type];
-      const items    = result.listsByType[type];
-      const urgentN  = products.filter(p => p.urgency === 'overdue' || p.urgency === 'soon').length;
-      const ico      = LIST_TYPE_ICONS[type] || '📋';
-
-      const btn = document.createElement('button');
-      btn.className = 'mtype-option';
-      btn.innerHTML = `
-        <span class="mtype-ico">${ico}</span>
-        <span class="mtype-info">
-          <span class="mtype-name">${type}</span>
-          <span class="mtype-count">${items.length} item${items.length !== 1 ? 's' : ''}${urgentN ? ` · <span class="mtype-urgent">${urgentN} urgente${urgentN !== 1 ? 's' : ''}</span>` : ''}</span>
-        </span>
-        <span class="mtype-arrow">→</span>`;
-      btn.addEventListener('click', () => { UI.hideModal(modal); onChoice({ items, listType: type }); });
-      list.appendChild(btn);
-    });
-
-    UI.showModal(modal);
-    document.getElementById('multiTypeCancel')?.addEventListener('click', () => {
-      UI.hideModal(modal); onChoice(null);
-    }, { once: true });
-  }
-
-  return { open, selectAllUrgent, clearAll, createList, showMultiTypeDialog };
-})();
-
-// ═══════════════════════════════════════════════════════════════
-// CONTROLES DE PAGAMENTO
-// ═══════════════════════════════════════════════════════════════
-const PAYMENT_METHODS = {
-  dinheiro: '💵 Dinheiro', pix: '⚡ PIX', cartao_credito: '💳 Crédito',
-  cartao_debito: '💳 Débito', vale_alimentacao: '🥗 Vale Alimentação',
-  vale_refeicao: '🍽️ Vale Refeição', outro: '📌 Outro',
-};
-function _paymentLabel(method) { return PAYMENT_METHODS[method] || method; }
-
-const PaymentManager = (() => {
-  let _rows = [];
-  let _total = 0;
-
-  function _fmt(n) { return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-
-  function _buildSelect(selected) {
-    const sel = document.createElement('select');
-    sel.className = 'pm-method-sel';
-    Object.entries(PAYMENT_METHODS).forEach(([k, v]) => {
-      const opt = document.createElement('option');
-      opt.value = k; opt.textContent = v;
-      if (k === selected) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    return sel;
-  }
-
-  function _render() {
-    const container = document.getElementById('pmRows');
-    if (!container) return;
-    container.innerHTML = '';
-
-    _rows.forEach((row, i) => {
-      const div = document.createElement('div');
-      div.className = 'pm-row';
-
-      const sel = _buildSelect(row.method);
-      sel.addEventListener('change', () => { _rows[i].method = sel.value; _updateStatus(); });
-
-      const inp = document.createElement('input');
-      inp.type = 'number'; inp.className = 'pm-amount'; inp.step = '0.01'; inp.min = '0';
-      inp.placeholder = 'R$ 0,00';
-      inp.value = row.amount > 0 ? row.amount.toFixed(2) : '';
-      inp.addEventListener('input', () => { _rows[i].amount = parseFloat(inp.value) || 0; _updateStatus(); });
-
-      const del = document.createElement('button');
-      del.type = 'button'; del.className = 'pm-del'; del.textContent = '✕';
-      del.title = 'Remover';
-      del.addEventListener('click', () => {
-        if (_rows.length === 1) return;
-        _rows.splice(i, 1); _render(); _updateStatus();
-      });
-      if (_rows.length === 1) del.style.visibility = 'hidden';
-
-      div.appendChild(sel); div.appendChild(inp); div.appendChild(del);
-      container.appendChild(div);
-    });
-
-    _updateStatus();
-    const addBtn = document.getElementById('pmAddBtn');
-    if (addBtn) addBtn.textContent = _rows.length === 1 ? '÷ dividir pagamento' : '+ outra forma';
-  }
-
-  function _updateStatus() {
-    const el = document.getElementById('pmStatus');
-    if (!el) return;
-    if (_rows.length === 0 || (_rows.length === 1 && _rows[0].amount === 0)) {
-      el.textContent = ''; el.className = 'pm-status'; return;
-    }
-    const sum  = _rows.reduce((s, r) => s + (r.amount || 0), 0);
-    const ok   = _total <= 0 || Math.abs(sum - _total) < 0.01;
-    const diff = _total - sum;
-    if (ok) {
-      el.textContent = '✓ fechado'; el.className = 'pm-status ok';
-    } else {
-      const sign = diff > 0 ? 'faltam' : 'sobram';
-      el.textContent = `${sign} R$ ${_fmt(Math.abs(diff))}`; el.className = 'pm-status warn';
-    }
-  }
-
-  function init(payments, total) {
-    _total = parseFloat(total) || 0;
-    if (Array.isArray(payments) && payments.length) {
-      _rows = payments.map(p => ({ method: p.method || 'pix', amount: parseFloat(p.amount) || 0 }));
-    } else {
-      _rows = [{ method: 'pix', amount: _total }];
-    }
-    _render();
-  }
-
-  function add() {
-    const remaining = _total - _rows.reduce((s, r) => s + (r.amount || 0), 0);
-    _rows.push({ method: 'pix', amount: Math.max(0, parseFloat(remaining.toFixed(2))) });
-    _render();
-  }
-
-  function get() { return _rows.filter(r => r.method && r.amount > 0); }
-
-  function validate() {
-    const pmts = get();
-    if (!pmts.length) return true;
-    if (_total <= 0)  return true;
-    const sum = pmts.reduce((s, r) => s + r.amount, 0);
-    return Math.abs(sum - _total) < 0.01;
-  }
-
-  return { init, add, get, validate };
-})();
-
-// ═══════════════════════════════════════════════════════════════
-// CLASSE PRINCIPAL (ShoppingList)
-// ═══════════════════════════════════════════════════════════════
-class ShoppingList {
-
-  constructor() {
-    this.items             = [];
-    this.customCategories  = [];
-    this.priceHistoryCache = [];
-    this.currentFilter     = 'all';
-    this.currentListName   = 'Lista Atual';
-    this.currentListType   = 'Supermercado';
-    this.editingIndex      = -1;
-    this.listTypes         = Object.fromEntries(Object.entries(LIST_CATEGORIES).map(([k]) => [k, {
-      'Supermercado':'🛒','Feira Livre':'🥕','Açougue':'🍖','Roupas':'👕',
-      'Farmácia':'💊','Eletrônicos':'📱','Casa e Jardim':'🏠',
-    }[k] || '📋']));
-  }
-
-  async initApp() {
-    this._bindElements();
-
-    this.customCategories  = await Storage.getCustomCategories();
-    this.priceHistoryCache = await Storage.getPriceHistory();
+    // 3. Carrega dados do Supabase / localStorage
+    this.customCategories  = await Storage.getCustomCategories(this.user.id);
+    this.priceHistoryCache = await Storage.getPriceHistory(this.user.id);
+    this.monthlyBudget     = await Storage.getBudget(this.user.id);
     await this._loadFromStorage();
 
+    // 4. Aplica tema
     const theme = localStorage.getItem('theme') || 'light';
     UI.applyTheme(theme);
 
-    this._bindEvents();
+    // 5. Inicializa eventos e renderiza (apenas uma vez)
+    if (!this._eventsBound) {
+      this._bindEvents();
+      this._eventsBound = true;
+    }
+    this._updateMenuProfile();
 
     if (this.items.length === 0) {
       UI.showListTypeSelection(this.listTypes, type => {
@@ -467,699 +72,1108 @@ class ShoppingList {
       this._updateCategories();
       this.render();
     }
+
+    // 6. Atualiza mini dashboard
+    this._updateMiniDash();
+
+    this._initialized = true;
   }
 
-  _bindElements() {
-    const $ = id => document.getElementById(id);
-    this.form                = $('itemForm');
-    this.itemInput           = $('itemInput');
-    this.categorySelect      = $('categorySelect');
-    this.quantityInput       = $('quantityInput');
-    this.unitSelect          = $('unitSelect');
-    this.priceWholesaleInput = $('priceWholesaleInput');
-    this.priceRetailInput    = $('priceRetailInput');
-    this.addButton           = $('addButton');
-    this.currentListNameEl   = $('currentListName');
-    this.filterButtons       = document.querySelectorAll('.filter-btn');
-
-    this.confirmModal  = $('confirmModal');
-    this.confirmMsg    = $('confirmMessage');
-    this.confirmOk     = $('confirmOk');
-    this.confirmCancel = $('confirmCancel');
-    this.historyModal  = $('historyModal');
-    this.historyClose  = $('historyClose');
-    this.historyList   = $('historyList');
-    this.listNameInput = $('listNameInput');
-    this.saveCancel    = $('saveCancel');
-    this.saveConfirm   = $('saveConfirm');
-    this.listDateInput = $('listDateInput');
-    this.compareModal  = $('compareModal');
-    this.compareList1  = $('compareList1');
-    this.compareList2  = $('compareList2');
-    this.compareExec   = $('compareExecute');
-    this.compareClose  = $('compareClose');
-    this.suggestModal  = $('suggestModal');
-    this.saveModal     = $('saveListModal');
-  }
-
-  _bindEvents() {
-    const on = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
-
-    // ── LÓGICA DO MENU LATERAL ──
-    const menuToggle = document.getElementById('menuToggle');
-    const sideMenu   = document.getElementById('sideMenu');
-    const menuOverlay= document.getElementById('menuOverlay');
-
-    const closeMenu = () => {
-      sideMenu?.classList.remove('open');
-      menuOverlay?.classList.remove('show');
-    };
-
-    if (menuToggle && sideMenu && menuOverlay) {
-      menuToggle.addEventListener('click', () => {
-        sideMenu.classList.add('open');
-        menuOverlay.classList.add('show');
-      });
-      menuOverlay.addEventListener('click', closeMenu);
-    }
-
-    // Fechar menu ao clicar em itens normais (mas ignorar botões de submenu)
-    document.querySelectorAll('.menu-item:not(.submenu-btn):not([data-toggle="submenu"])').forEach(item => {
-      item.addEventListener('click', closeMenu);
-    });
-
-    // ── LÓGICA GENÉRICA PARA SUBMENUS (ACCORDION) ──
-    document.querySelectorAll('.submenu-btn, .submenu-toggle, [data-toggle="submenu"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        btn.classList.toggle('active');
-        const targetId = btn.getAttribute('data-target');
-        const submenu = targetId ? document.getElementById(targetId) : btn.nextElementSibling;
-
-        if (submenu) {
-          submenu.classList.toggle('show');
-          submenu.classList.toggle('open');
-          const isHidden = window.getComputedStyle(submenu).display === 'none';
-          if (isHidden || submenu.style.display === 'none') {
-            submenu.style.display = 'block';
-          } else {
-            submenu.style.display = 'none';
-          }
-        }
-      });
-    });
-
-    this.form?.addEventListener('submit', e => this._handleSubmit(e));
-
-    on('clearAllButton',     'click', () => this._confirmClearAll());
-    on('shareButton',        'click', () => this._shareList());
-    on('darkModeToggle',     'click', () => this._toggleTheme());
-
-    on('historyButton',      'click', () => this._showHistory());
-    on('menuHistory',        'click', () => { closeMenu(); this._showHistory(); });
-
-    on('compareListsButton', 'click', () => this._showCompareDialog());
-    on('menuCompare',        'click', () => { closeMenu(); this._showCompareDialog(); });
-
-    on('saveListButton',     'click', () => this._showSaveDialog());
-    on('newListButton',      'click', () => this._createNewList());
-    on('versionButton',      'click', () => window.open('versao.html', '_blank'));
-
-    // Logout
-    on('menuLogout', 'click', async () => {
-      if (window.supabaseClient) {
-        await window.supabaseClient.auth.signOut();
-        window.location.reload();
-      }
-    });
-
-    on('exportTxt',   'click', () => {
-      Exporter.toTxt(this.items, this.currentListName, this.currentListType,
-        this.listTypes[this.currentListType], cat => this._getCatEmoji(cat));
-      UI.showToast('Lista exportada para TXT!');
-    });
-    on('exportPdf',   'click', () => {
-      const ok = Exporter.toPdf(this.items, this.currentListName, this.currentListType, cat => this._getCatEmoji(cat));
-      UI.showToast(ok ? 'Lista exportada para PDF!' : 'Adicione itens antes de exportar!');
-    });
-    on('exportExcel', 'click', () => {
-      Exporter.toCsv(this.items, this.currentListName);
-      UI.showToast('Lista exportada para CSV!');
-    });
-
-    on('backupDownload', 'click', () => UI.showToast('O backup agora é automático na nuvem! ☁️'));
-    on('backupUpload', 'click', () => UI.showToast('Suas listas já estão sincronizadas! ☁️'));
-
-    this.filterButtons?.forEach(btn => btn.addEventListener('click', e => this._setFilter(e.target.dataset.filter)));
-
-    this.confirmCancel?.addEventListener('click',  () => UI.hideModal(this.confirmModal));
-    this.historyClose?.addEventListener('click',   () => UI.hideModal(this.historyModal));
-    this.saveCancel?.addEventListener('click',     () => UI.hideModal(this.saveModal));
-    this.saveConfirm?.addEventListener('click',    () => this._saveCurrentList());
-    this.compareClose?.addEventListener('click',   () => UI.hideModal(this.compareModal));
-    this.compareExec?.addEventListener('click',    () => this._executeComparison());
-
-    const pmAddBtn = document.getElementById('pmAddBtn');
-    if (pmAddBtn) pmAddBtn.addEventListener('click', () => PaymentManager.add());
-
-    on('suggestButton',  'click', () => this._openSuggest());
-    on('suggestClose',   'click', () => UI.hideModal(this.suggestModal));
-    on('suggestSelectAll','click', () => SuggestionManager.selectAllUrgent());
-    on('suggestClearAll', 'click', () => SuggestionManager.clearAll());
-    on('suggestCreate',   'click', () => this._createFromSuggestion());
-    on('priceHistoryClose', 'click', () => UI.hideModal(document.getElementById('priceHistoryModal')));
-
-    this._bindConfigEvents();
-
-    document.querySelectorAll('.modal').forEach(m =>
-      m.addEventListener('click', e => { if (e.target === m) UI.hideModal(m); })
-    );
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') UI.hideAllModals(); });
-  }
-
-  _bindConfigEvents() {
-    const on = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
-    const configModal = document.getElementById('configModal');
-
-    const openConfig = async () => {
-      const disp = document.getElementById('currentListTypeDisplay');
-      if (disp) disp.textContent = this.currentListType;
-      this._refreshCustomCategoryList();
-
-      if (window.supabaseClient) {
-        const { data: { user } } = await window.supabaseClient.auth.getUser();
-        if (user) UI.fillConfigProfile(user);
-      }
-
-      UI.showModal(configModal);
-    };
-
-    on('configButton', 'click', openConfig);
-    on('menuConfig',   'click', () => {
-      const sideMenu = document.getElementById('sideMenu');
-      const menuOverlay = document.getElementById('menuOverlay');
-      if (sideMenu) sideMenu.classList.remove('open');
-      if (menuOverlay) menuOverlay.classList.remove('show');
-      openConfig();
-    });
-
-    on('configClose',  'click', () => UI.hideModal(configModal));
-
-    on('changeListType','click', () => {
-      UI.hideModal(configModal);
-      UI.showListTypeSelection(this.listTypes, type => {
-        this.currentListType = type;
-        this._updateCategories();
-        this.render();
-      });
-    });
-
-    on('addCustomCategory', 'click', async () => {
-      const nameInput  = document.getElementById('newCategoryName');
-      const emojiInput = document.getElementById('newCategoryEmoji');
-      const name  = nameInput.value.trim();
-      const emoji = emojiInput.value.trim();
-      if (!name || !emoji) { UI.showToast('Preencha nome e emoji!'); return; }
-
-      await Storage.saveCustomCategory({ name, emoji, list_type: this.currentListType });
-      this.customCategories = await Storage.getCustomCategories();
-
-      this._updateCategories();
-      nameInput.value = ''; emojiInput.value = '';
-      this._refreshCustomCategoryList();
-      UI.showToast('Categoria adicionada!');
-    });
-
-    on('profileForm', 'submit', async (e) => {
-      e.preventDefault();
-      if (!window.supabaseClient) return;
-
-      const data = UI.getProfileFormData();
-      const updates = { data: { apelido: data.name, avatar_url: data.photoUrl } };
-      if (data.password) updates.password = data.password;
-
-      try {
-        const { error } = await window.supabaseClient.auth.updateUser(updates);
-        if (error) throw error;
-        UI.showToast('Perfil atualizado com sucesso!');
-        UI.clearProfilePassword();
-
-        const menuName = document.getElementById('menuUserName');
-        const menuPhoto = document.getElementById('menuUserPhoto');
-        if (menuName) menuName.textContent = data.name || 'Usuário';
-        if (menuPhoto && data.photoUrl) menuPhoto.src = data.photoUrl;
-
-      } catch (err) {
-        UI.showToast('Erro ao atualizar perfil: ' + err.message);
-      }
-    });
-
-    on('deleteAccountBtn', 'click', () => {
-      if (confirm('Tem certeza que deseja deletar sua conta? Esta ação é irreversível e apagará todos os seus dados.')) {
-        UI.showToast('Por segurança, a exclusão de conta deve ser solicitada ao suporte no momento.');
-      }
-    });
-
-    // ── NOVO: SALVAR META MENSAL NO MODAL DE CONFIGURAÇÕES ──
-    on('saveBudgetBtn', 'click', async () => {
-      const budgetInput = document.getElementById('monthlyBudgetInput');
-      if (!budgetInput) return;
-      const amount = parseFloat(budgetInput.value) || 0;
-
-      const success = await Storage.saveMonthlyBudget(amount);
-      if (success) {
-        UI.showToast('Meta mensal atualizada!');
-        this.render(); // Atualiza o Dashboard imediatamente
-      } else {
-        UI.showToast('Erro ao salvar meta.');
-      }
-    });
-  }
-
-  _refreshCustomCategoryList() {
-    const currentCats = this.customCategories.filter(c => c.list_type === this.currentListType);
-    if(UI.renderCustomCategories) {
-      UI.renderCustomCategories(
-        currentCats,
-        async (name) => {
-          UI.showToast('A exclusão de categorias será adicionada em breve!');
-        }
-      );
+  // ─────────────── AUTENTICAÇÃO FORÇADA ───────────────
+  async _checkAuth() {
+    try {
+      const { data: { user } } = await Auth.getUser();
+      this.user = user;
+      return user;
+    } catch {
+      return null;
     }
   }
 
-  async _handleSubmit(e) {
-    e.preventDefault();
-    const name      = this.itemInput.value.trim();
-    const wholesale = parseFloat(this.priceWholesaleInput.value) || 0;
-    const retail    = parseFloat(this.priceRetailInput.value)    || 0;
+  _forceAuth() {
+    const authModal = document.getElementById('authModal');
+    if (!authModal) return;
+    authModal.classList.add('show', 'active', 'visible');
+    authModal.style.display = 'flex';
+    authModal.setAttribute('data-force', 'true');
 
-    const item = {
-      id:             Calculator.generateId(),
-      name,
-      category:       this.categorySelect.value,
-      quantity:       parseFloat(this.quantityInput.value) || 1,
-      unit:           this.unitSelect.value,
-      priceWholesale: wholesale,
-      priceRetail:    retail,
-      completed:      false,
-    };
+    const closeBtn = document.getElementById('authClose');
+    if (closeBtn) closeBtn.style.display = 'none';
 
-    if (this.editingIndex >= 0) {
-      item.id = this.items[this.editingIndex].id;
-      this.items[this.editingIndex] = item;
-      this.editingIndex = -1;
-      this.addButton.textContent = '➕ Adicionar Item';
-    } else {
-      this.items.push(item);
-    }
-
-    this._resetForm();
-    await this._saveToStorage();
-    this.render();
-    UI.showToast('Item adicionado!');
-  }
-
-  _resetForm() {
-    if(this.form) this.form.reset();
-    if(this.quantityInput) this.quantityInput.value = '1';
-    if(this.itemInput) this.itemInput.focus();
-  }
-
-  _toggleTheme() {
-    const current = localStorage.getItem('theme') || 'light';
-    const next = current === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('theme', next);
-    UI.applyTheme(next);
-  }
-
-  _setFilter(filter) {
-    this.currentFilter = filter;
-    this.filterButtons?.forEach(btn => btn.classList.toggle('active', btn.dataset.filter === filter));
-    this.render();
-  }
-
-  _getFiltered() {
-    if (this.currentFilter === 'completed') return this.items.filter(i =>  i.completed);
-    if (this.currentFilter === 'pending')   return this.items.filter(i => !i.completed);
-    return this.items;
-  }
-
-  async toggleItem(index) {
-    const item = this.items[index];
-    item.completed = !item.completed;
-    if ('vibrate' in navigator) navigator.vibrate(40);
-    this.items.sort((a, b) => (a.completed ? 1 : 0) - (b.completed ? 1 : 0));
-    await this._saveToStorage();
-    this.render();
-  }
-
-  editItem(index) {
-    const item = this.items[index];
-    this.itemInput.value           = item.name;
-    this.categorySelect.value      = item.category;
-    this.quantityInput.value       = item.quantity;
-    this.unitSelect.value          = item.unit;
-    this.priceWholesaleInput.value = item.priceWholesale || 0;
-    this.priceRetailInput.value    = item.priceRetail    || 0;
-    this.editingIndex              = index;
-    this.addButton.textContent     = '✏️ Atualizar Item';
-    this.itemInput.focus();
-    this.itemInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  deleteItem(index) {
-    UI.setText(this.confirmMsg, `Excluir "${this.items[index].name}"?`);
-    UI.showModal(this.confirmModal);
-    this.confirmOk.onclick = async () => {
-      this.items.splice(index, 1);
-      await this._saveToStorage();
-      this.render();
-      UI.hideModal(this.confirmModal);
-      UI.showToast('Item excluído!');
-    };
-  }
-
-  showPriceHistory(index) {
-    const item    = this.items[index];
-    const history = this.priceHistoryCache.filter(h => h.product_name && h.product_name.toLowerCase() === item.name.toLowerCase());
-    UI.renderPriceHistoryModal(item.name, history);
-  }
-
-  _confirmClearAll() {
-    if (!this.items.length) { UI.showToast('A lista já está vazia!'); return; }
-    UI.setText(this.confirmMsg, 'Limpar toda a lista?');
-    UI.showModal(this.confirmModal);
-    this.confirmOk.onclick = async () => {
-      this.items = [];
-      await this._saveToStorage();
-      this.render();
-      UI.hideModal(this.confirmModal);
-      UI.showToast('Lista limpa!');
-    };
-  }
-
-  _shareList() {
-    if (!this.items.length) { UI.showToast('Adicione itens primeiro!'); return; }
-    const text = this.items.map(i => `${i.completed ? '✅' : '⬜'} ${i.quantity} ${i.unit} de ${i.name}`).join('\n');
-    const body = `📝 ${this.currentListName}\n\n${text}`;
-    if (navigator.share) navigator.share({ title: this.currentListName, text: body });
-    else navigator.clipboard.writeText(body).then(() => UI.showToast('Lista copiada!'));
-  }
-
-  async _showHistory() {
-    const lists = await Storage.getSavedLists();
-    UI.renderHistory(lists, {
-      onLoad:     idx => this.loadList(lists[idx]),
-      onDelete:   idx => this.deleteList(lists[idx].id, lists[idx].name),
-      onEditDate: idx => UI.showToast('Edição de data em breve na nuvem!'),
-    });
-    UI.showModal(this.historyModal);
-  }
-
-  async loadList(listObj) {
-    if (!listObj) return;
-    this.items = listObj.list_items.map(i => ({
-      id: i.id,
-      name: i.name,
-      category: i.category,
-      quantity: i.quantity,
-      unit: i.unit,
-      priceWholesale: i.wholesale_price,
-      priceRetail: i.retail_price,
-      completed: i.completed
-    }));
-    this.currentListName = listObj.name;
-    this.currentListType = listObj.list_type || 'Supermercado';
-    if(this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
-    this._updateCategories();
-    await this._saveToStorage();
-    this.render();
-    UI.hideModal(this.historyModal);
-    UI.showToast(`Lista "${listObj.name}" carregada!`);
-  }
-
-  async deleteList(id, name) {
-    await Storage.deleteList(id);
-    this._showHistory();
-    UI.showToast(`Lista "${name}" excluída!`);
-  }
-
-  async _openSuggest() {
-    const lists = await Storage.getSavedLists();
-    SuggestionManager.open(lists);
-    UI.showModal(this.suggestModal);
-  }
-
-  _createFromSuggestion() {
-    const result = SuggestionManager.createList();
-    if (!result) return;
-    UI.hideModal(this.suggestModal);
-    if (!result.multi) {
-      this._applySuggestedList(result.items, result.listType);
-      UI.showToast(`✅ ${result.items.length} itens · ${result.listType}`);
-    } else {
-      SuggestionManager.showMultiTypeDialog(result, (chosen) => {
-        if (!chosen) return;
-        this._applySuggestedList(chosen.items, chosen.listType);
-        UI.showToast(`✅ ${chosen.items.length} itens · ${chosen.listType}`);
-      });
+    const menuModal = document.getElementById('mainMenuModal');
+    if (menuModal) {
+      menuModal.classList.remove('show', 'active', 'visible');
+      menuModal.style.display = 'none';
     }
   }
 
-  async _applySuggestedList(items, listType) {
-    this.items           = items;
-    this.currentListType = listType;
-    this.currentListName = 'Lista Sugerida';
-    if(this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
-    this._updateCategories();
-    await this._saveToStorage();
-    this.render();
+  _hideForceAuth() {
+    const authModal = document.getElementById('authModal');
+    if (!authModal) return;
+    authModal.classList.remove('show', 'active', 'visible');
+    authModal.style.display = 'none';
+    const closeBtn = document.getElementById('authClose');
+    if (closeBtn) closeBtn.style.display = '';
+    authModal.removeAttribute('data-force');
   }
 
-  async _showSaveDialog() {
-    if(this.listNameInput) this.listNameInput.value = this.currentListName;
-
-    if (this.listDateInput) {
-      this.listDateInput.value = new Date().toISOString().slice(0, 10);
-    }
-    const total = Calculator.calculateTotals(this.items).general;
-    PaymentManager.init(null, total);
-
-    UI.showModal(this.saveModal);
-    if(this.listNameInput) this.listNameInput.focus();
-  }
-
-  // ── CONTINUAÇÃO DO CÓDIGO QUE HAVIA SIDO CORTADO ──
-
-  async _saveCurrentList() {
-    const name = this.listNameInput ? this.listNameInput.value.trim() : 'Nova Lista';
-    if (!name) { UI.showToast('Digite um nome!'); return; }
-
-    const dateStr = this.listDateInput ? this.listDateInput.value : new Date().toISOString().slice(0, 10);
-
-    if (!PaymentManager.validate()) {
-      UI.showToast('Os pagamentos não batem com o total!');
-      return;
-    }
-
-    const listData = {
-      name: name,
-      market: '', // Pode ser adicionado futuramente
-      date: dateStr,
-      totalGeneral: Calculator.calculateTotals(this.items).general
-    };
-
-    const payments = PaymentManager.get();
-
-    // Salva a lista como concluída no Supabase
-    await Storage.saveNewList(listData, this.items, payments);
-
-    UI.hideModal(this.saveModal);
-    UI.showToast('Lista salva com sucesso!');
-
-    // Limpa a lista atual para começar uma nova
-    this.items = [];
-    this.currentListName = 'Nova Lista';
-    if(this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
-
-    await this._saveToStorage();
-    this.render(); // O Dashboard será atualizado automaticamente aqui
-  }
-
-  async _createNewList() {
-    if (this.items.length > 0) {
-      UI.setText(this.confirmMsg, 'Criar nova lista? Os itens atuais não salvos serão perdidos.');
-      UI.showModal(this.confirmModal);
-      this.confirmOk.onclick = async () => {
-        this.items = [];
-        this.currentListName = 'Nova Lista';
-        if(this.currentListNameEl) this.currentListNameEl.textContent = this.currentListName;
-
-        await this._saveToStorage();
-        this.render();
-        UI.hideModal(this.confirmModal);
-
-        UI.showListTypeSelection(this.listTypes, type => {
-          this.currentListType = type;
-          this._updateCategories();
-          this.render();
-        });
-      };
-    } else {
-      UI.showListTypeSelection(this.listTypes, type => {
-        this.currentListType = type;
-        this._updateCategories();
-        this.render();
-      });
-    }
-  }
-
-  async _showCompareDialog() {
-    const lists = await Storage.getSavedLists();
-    if (lists.length < 2) {
-      UI.showToast('Você precisa de pelo menos 2 listas salvas para comparar.');
-      return;
-    }
-
-    if(this.compareList1 && this.compareList2) {
-      this.compareList1.innerHTML = lists.map(l => `<option value="${l.id}">${l.name} (${l.purchase_date})</option>`).join('');
-      this.compareList2.innerHTML = lists.map(l => `<option value="${l.id}">${l.name} (${l.purchase_date})</option>`).join('');
-      this.compareList2.selectedIndex = 1;
-    }
-    UI.showModal(this.compareModal);
-  }
-
-  async _executeComparison() {
-    if(!this.compareList1 || !this.compareList2) return;
-
-    const id1 = this.compareList1.value;
-    const id2 = this.compareList2.value;
-
-    if (id1 === id2) {
-      UI.showToast('Selecione listas diferentes para comparar.');
-      return;
-    }
-
-    const lists = await Storage.getSavedLists();
-    const list1 = lists.find(l => l.id === id1);
-    const list2 = lists.find(l => l.id === id2);
-
-    const result = _compareLists(list1.list_items, list2.list_items);
-    UI.renderComparisonResult(result, list1.name, list2.name);
-    UI.hideModal(this.compareModal);
-  }
-
-  _updateCategories() {
-    if(!this.categorySelect) return;
-
-    const baseCats = _getCategoriesForType(this.currentListType);
-    const customCats = this.customCategories.filter(c => c.list_type === this.currentListType);
-
-    this.categorySelect.innerHTML = '';
-
-    Object.keys(baseCats).forEach(cat => {
-      const opt = document.createElement('option');
-      opt.value = cat;
-      opt.textContent = `${baseCats[cat]} ${cat}`;
-
-
-      this.categorySelect.appendChild(opt);
-    });
-
-    if (customCats.length > 0) {
-      const group = document.createElement('optgroup');
-      group.label = 'Personalizadas';
-      customCats.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.name;
-        opt.textContent = `${c.emoji} ${c.name}`;
-        group.appendChild(opt);
-      });
-      this.categorySelect.appendChild(group);
-    }
-  }
-
-  _getCatEmoji(cat) {
-    const baseCats = _getCategoriesForType(this.currentListType);
-    if (baseCats[cat]) return baseCats[cat];
-    const custom = this.customCategories.find(c => c.name === cat && c.list_type === this.currentListType);
-    return custom ? custom.emoji : '📦';
+  // ─────────────── CARGA / SALVAMENTO ───────────────
+  async _loadFromStorage() {
+    if (!this.user) return;
+    const items = await Storage.getItems(this.user.id, this.currentListType);
+    this.items = items || [];
+    this.savedListsMeta = await Storage.getLists(this.user.id);
   }
 
   async _saveToStorage() {
-    await Storage.saveCurrentList(this.items);
+    if (!this.user) return;
+    await Storage.saveItems(this.user.id, this.items, this.currentListType);
   }
 
-  async _loadFromStorage() {
-    const draftItems = await Storage.getCurrentList();
-    this.items = draftItems.map(i => ({
-      id: i.id,
-      name: i.name,
-      category: i.category,
-      quantity: i.quantity,
-      unit: i.unit,
-      priceWholesale: i.wholesale_price,
-      priceRetail: i.retail_price,
-      completed: i.completed
+  // ─────────────── BIND DE ELEMENTOS ───────────────
+  _bindElements() {
+    // Formulário
+    this.itemForm     = document.getElementById('itemForm');
+    this.itemInput    = document.getElementById('itemInput');
+    this.catSelect    = document.getElementById('categorySelect');
+    this.unitSelect   = document.getElementById('unitSelect');
+    this.qtyInput     = document.getElementById('quantityInput');
+    this.wsPriceInput = document.getElementById('priceWholesaleInput');
+    this.rtPriceInput = document.getElementById('priceRetailInput');
+    this.addButton    = document.getElementById('addButton');
+
+    // Lista
+    this.itemListEl   = document.getElementById('itemList');
+    this.emptyState   = document.getElementById('emptyState');
+
+    // Totais
+    this.totalItems   = document.getElementById('totalItems');
+    this.totalGeneral = document.getElementById('totalGeneral');
+    this.totalEconomy = document.getElementById('totalEconomy');
+
+    // Ações principais
+    this.clearAllBtn  = document.getElementById('clearAllButton');
+    this.shareBtn     = document.getElementById('shareButton');
+    this.filterBtns   = document.querySelectorAll('.filter-btn');
+
+    // Mini dash
+    this.miniDashContainer = document.getElementById('miniDashContainer');
+    this.miniDashBudget    = document.getElementById('miniDashBudget');
+    this.miniDashSpent     = document.getElementById('miniDashSpent');
+    this.miniDashSpentCard = document.getElementById('miniDashSpentCard');
+
+    // Salvar lista
+    this.listNameInput   = document.getElementById('listNameInput');
+    this.listDateInput   = document.getElementById('listDateInput');
+    this.marketInput     = document.getElementById('marketInput');
+    this.pmRows          = document.getElementById('pmRows');
+
+    // Histórico / comparar
+    this.historyListEl   = document.getElementById('historyList');
+    this.compareList1    = document.getElementById('compareList1');
+    this.compareList2    = document.getElementById('compareList2');
+    this.compareResults  = document.getElementById('compareResults');
+
+    // Sugestões
+    this.suggestTypeTabs = document.getElementById('suggestTypeTabs');
+    this.suggestList     = document.getElementById('suggestList');
+    this.suggestSummary  = document.getElementById('suggestSummary');
+
+    // Configurações
+    this.profileName           = document.getElementById('profileName');
+    this.profilePhotoUrl       = document.getElementById('profilePhotoUrl');
+    this.profileNewPassword    = document.getElementById('profileNewPassword');
+    this.customCategoriesList  = document.getElementById('customCategoriesList');
+    this.currentListTypeDisplay= document.getElementById('currentListTypeDisplay');
+    this.monthlyBudgetInput    = document.getElementById('monthlyBudgetInput');
+  }
+
+  // ─────────────── BIND DE EVENTOS ───────────────
+  _bindEvents() {
+    // --- Formulário de item ---
+    if (this.itemForm) {
+      this.itemForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.addItem();
+      });
+    }
+
+    // --- Menu Principal (Modal) ---
+    const menuBtn   = document.getElementById('mainMenuBtn');
+    const menuModal = document.getElementById('mainMenuModal');
+    const menuClose = document.getElementById('mainMenuClose');
+
+    const closeMenu = () => {
+      if (menuModal) {
+        menuModal.classList.remove('show', 'active', 'visible');
+        menuModal.style.display = 'none';
+      }
+    };
+
+    if (menuBtn && menuModal) {
+      menuBtn.addEventListener('click', () => {
+        menuModal.classList.add('show', 'active', 'visible');
+        menuModal.style.display = 'flex';
+      });
+    }
+    if (menuClose) menuClose.addEventListener('click', closeMenu);
+
+    // Fecha menu ao clicar em ações
+    ['historyButton', 'compareListsButton', 'configButton', 'btnOpenLogin'].forEach(id => {
+      document.getElementById(id)?.addEventListener('click', closeMenu);
+    });
+
+    // --- Botão "Entrar / Cadastrar" ---
+    document.getElementById('btnOpenLogin')?.addEventListener('click', () => {
+      const authModal = document.getElementById('authModal');
+      if (authModal) {
+        authModal.classList.add('show', 'active', 'visible');
+        authModal.style.display = 'flex';
+        const closeBtn = document.getElementById('authClose');
+        if (closeBtn) closeBtn.style.display = '';
+        authModal.removeAttribute('data-force');
+      }
+    });
+
+    // --- Botão "Sair" ---
+    document.getElementById('btnLogout')?.addEventListener('click', async () => {
+      await Auth.signOut();
+      this.items = [];
+      this.render();
+      this._updateMenuProfile();
+      this._forceAuth();
+    });
+
+    // --- Limpar tudo ---
+    this.clearAllBtn?.addEventListener('click', () => {
+      UI.showConfirm('Tem certeza que deseja limpar a lista?', () => {
+        this.items = [];
+        this._saveToStorage();
+        this.render();
+        UI.showToast('Lista limpa 🧹');
+      });
+    });
+
+    // --- Compartilhar ---
+    this.shareBtn?.addEventListener('click', () => {
+      const text = this.items.map(i => `${i.name} (${i.quantity}${i.unit})`).join('\n');
+      if (navigator.share) {
+        navigator.share({ title: 'Lista de Compras', text });
+      } else {
+        navigator.clipboard.writeText(text).then(() => UI.showToast('Lista copiada!'));
+      }
+    });
+
+    // --- Filtros ---
+    this.filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.filter = btn.dataset.filter;
+        this.render();
+      });
+    });
+
+    // --- Exportação ---
+    document.getElementById('exportTxt')?.addEventListener('click', () => Export.exportTXT(this.items));
+    document.getElementById('exportPdf')?.addEventListener('click', () => Export.exportPDF(this.items));
+    document.getElementById('exportExcel')?.addEventListener('click', () => Export.exportCSV(this.items));
+
+    // --- Histórico de listas ---
+    document.getElementById('historyButton')?.addEventListener('click', () => this._openHistory());
+    document.getElementById('historyClose')?.addEventListener('click', () => UI.hideModal('historyModal'));
+    document.getElementById('compareListsButton')?.addEventListener('click', () => this._openCompare());
+    document.getElementById('compareClose')?.addEventListener('click', () => UI.hideModal('compareModal'));
+    document.getElementById('compareExecute')?.addEventListener('click', () => this._executeCompare());
+
+    // --- Salvar lista ---
+    document.getElementById('saveListButton')?.addEventListener('click', () => this._openSaveList());
+    document.getElementById('saveConfirm')?.addEventListener('click', () => this._confirmSaveList());
+    document.getElementById('saveCancel')?.addEventListener('click', () => UI.hideModal('saveListModal'));
+
+    // --- Nova lista ---
+    document.getElementById('newListButton')?.addEventListener('click', () => {
+      UI.showConfirm('Deseja iniciar uma nova lista? (a atual será salva automaticamente)', async () => {
+        await this._saveToStorage();
+        this.items = [];
+        this.activeListId = null;
+        this.currentListType = 'Supermercado';
+        this._updateCategories();
+        this.render();
+        UI.showToast('Nova lista iniciada 📄');
+      });
+    });
+
+    // --- Configurações ---
+    document.getElementById('configButton')?.addEventListener('click', () => this._openConfig());
+    document.getElementById('configClose')?.addEventListener('click', () => UI.hideModal('configModal'));
+    document.getElementById('btnSaveProfile')?.addEventListener('click', () => this._saveProfile());
+    document.getElementById('btnDeleteAccount')?.addEventListener('click', () => this._deleteAccount());
+    document.getElementById('btnGeneralSettings')?.addEventListener('click', () => this._openGeneralSettings());
+    document.getElementById('changeListType')?.addEventListener('click', () => this._changeListType());
+    document.getElementById('addCustomCategory')?.addEventListener('click', () => this._addCustomCategory());
+    document.getElementById('backupDownload')?.addEventListener('click', () => this._downloadBackup());
+    document.getElementById('backupUpload')?.addEventListener('click', () => document.getElementById('backupFileInput').click());
+    document.getElementById('backupFileInput')?.addEventListener('change', (e) => this._restoreBackup(e));
+    document.getElementById('btnInviteFriends')?.addEventListener('click', () => this._inviteFriends());
+    document.getElementById('versionButton')?.addEventListener('click', () => {
+      alert('Versão 3.0 – melhorias na sincronização, novo menu e autenticação obrigatória.');
+    });
+
+    // --- Sugestões ---
+    document.getElementById('suggestButton')?.addEventListener('click', () => this._openSuggestions());
+    document.getElementById('suggestClose')?.addEventListener('click', () => UI.hideModal('suggestModal'));
+    document.getElementById('suggestCreate')?.addEventListener('click', () => this._createFromSuggestions());
+
+    // --- Meta mensal ---
+    document.getElementById('saveBudgetBtn')?.addEventListener('click', () => this._saveBudget());
+
+    // --- Pagamento dividido: add + remove (delegação) ---
+    document.getElementById('pmAddBtn')?.addEventListener('click', () => this._addPaymentRow());
+    this.pmRows?.addEventListener('click', (e) => {
+      if (e.target.classList.contains('pay-remove')) {
+        const rows = document.querySelectorAll('.pay-row');
+        if (rows.length > 1) e.target.closest('.pay-row')?.remove();
+      }
+    });
+  }
+
+  // ─────────────── PERFIL NO MENU ───────────────
+  _updateMenuProfile() {
+    const nameEl     = document.getElementById('menuUserName');
+    const emailEl    = document.getElementById('menuUserEmail');
+    const initialsEl = document.getElementById('menuUserInitials');
+    const photoEl    = document.getElementById('menuUserPhoto');
+    const loginBtn   = document.getElementById('btnOpenLogin');
+    const logoutBtn  = document.getElementById('btnLogout');
+
+    if (this.user) {
+      const meta = this.user.user_metadata || {};
+      const nome = meta.nome || meta.apelido || 'Usuário';
+      if (nameEl)  nameEl.textContent  = nome;
+      if (emailEl) emailEl.textContent = this.user.email;
+      if (initialsEl) initialsEl.textContent = nome.charAt(0).toUpperCase();
+      if (photoEl && meta.photo_url) {
+        photoEl.src = meta.photo_url;
+        photoEl.style.display = 'block';
+        if (initialsEl) initialsEl.style.display = 'none';
+      }
+      if (loginBtn)  loginBtn.style.display  = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'block';
+    } else {
+      if (nameEl)  nameEl.textContent  = 'Visitante';
+      if (emailEl) emailEl.textContent = 'Faça login para sincronizar';
+      if (initialsEl) initialsEl.textContent = '👤';
+      if (photoEl) photoEl.style.display = 'none';
+      if (loginBtn)  loginBtn.style.display  = 'block';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+    }
+  }
+
+  // ─────────────── CATEGORIAS ───────────────
+  _updateCategories() {
+    if (!this.catSelect) return;
+    const base   = this.listTypes[this.currentListType]?.categories || [];
+    const custom = this.customCategories.map(c => c.name);
+    const all    = [...new Set([...base, ...custom])];
+
+    this.catSelect.innerHTML = all.map(cat => {
+      const emoji = this._catEmoji(cat);
+      return `<option value="${cat}">${emoji} ${cat}</option>`;
+    }).join('');
+  }
+
+  _catEmoji(cat) {
+    const map = {
+      'Alimentos':'🍎','Hortifruti':'🥦','Carnes':'🍖','Limpeza':'🧽',
+      'Higiene':'🧴','Bebidas':'🥤','Papelaria':'📎','Outros':'📦'
+    };
+    const custom = this.customCategories.find(c => c.name === cat);
+    return custom?.emoji || map[cat] || '📦';
+  }
+
+  // ─────────────── ADICIONAR ITEM ───────────────
+  addItem() {
+    const name = this.itemInput?.value.trim();
+    if (!name) return;
+
+    const cat  = this.catSelect?.value  || 'Outros';
+    const unit = this.unitSelect?.value || 'unidade';
+    const qty  = parseFloat(this.qtyInput?.value)     || 1;
+    const ws   = parseFloat(this.wsPriceInput?.value) || 0;
+    const rt   = parseFloat(this.rtPriceInput?.value) || 0;
+
+    this.items.push({
+      id: Date.now().toString(),
+      name,
+      category: cat,
+      unit,
+      quantity: qty,
+      priceWholesale: ws,
+      priceRetail: rt,
+      completed: false
+    });
+
+    // Histórico de preços — guarda categoria para o SuggestionManager
+    if (ws || rt) {
+      if (!this.priceHistoryCache[name]) this.priceHistoryCache[name] = [];
+      this.priceHistoryCache[name].push({
+        ws, rt, category: cat, date: new Date().toISOString()
+      });
+      Storage.savePriceHistory(this.user.id, this.priceHistoryCache);
+    }
+
+    this._saveToStorage();
+    this.render();
+    this.itemInput.value = '';
+    this.itemInput.focus();
+  }
+
+  // ─────────────── REMOVER / TOGGLE ───────────────
+  removeItem(id) {
+    this.items = this.items.filter(i => i.id !== id);
+    this._saveToStorage();
+    this.render();
+  }
+
+  toggleItem(id) {
+    const item = this.items.find(i => i.id === id);
+    if (item) item.completed = !item.completed;
+    this._saveToStorage();
+    this.render();
+  }
+
+  // ─────────────── RENDERIZAÇÃO ───────────────
+  render() {
+    let filtered = this.items;
+    if (this.filter === 'pending')        filtered = filtered.filter(i => !i.completed);
+    else if (this.filter === 'completed') filtered = filtered.filter(i => i.completed);
+
+    const groups = {};
+    filtered.forEach(item => {
+      if (!groups[item.category]) groups[item.category] = [];
+      groups[item.category].push(item);
+    });
+
+    if (this.itemListEl) {
+      this.itemListEl.innerHTML = Object.keys(groups).map(cat => {
+        const items = groups[cat].map(i => {
+          const total = i.quantity * (i.priceRetail || i.priceWholesale || 0);
+          return `
+            <li class="item ${i.completed ? 'completed' : ''}" data-id="${i.id}">
+              <input type="checkbox" ${i.completed ? 'checked' : ''} class="item-check">
+              <span class="item-name">${i.name}</span>
+              <span class="item-qty">${i.quantity} ${i.unit}</span>
+              <span class="item-price">R$ ${total.toFixed(2)}</span>
+              <button class="item-remove">🗑️</button>
+            </li>`;
+        }).join('');
+        return `<div class="category-group">
+          <h4 class="cat-title">${this._catEmoji(cat)} ${cat}</h4>
+          <ul>${items}</ul>
+        </div>`;
+      }).join('');
+    }
+
+    if (this.emptyState) {
+      this.emptyState.style.display = filtered.length === 0 ? 'block' : 'none';
+    }
+
+    document.querySelectorAll('#itemList .item-check').forEach(cb => {
+      cb.onchange = (e) => {
+        const id = e.target.closest('.item').dataset.id;
+        this.toggleItem(id);
+      };
+    });
+    document.querySelectorAll('#itemList .item-remove').forEach(btn => {
+      btn.onclick = (e) => {
+        const id = e.target.closest('.item').dataset.id;
+        this.removeItem(id);
+      };
+    });
+
+    this._updateStats();
+    this._updateMiniDash();
+  }
+
+  _updateStats() {
+    const totalItems = this.items.length;
+    const totalGeral = this.items.reduce(
+      (sum, i) => sum + (i.quantity * (i.priceRetail || i.priceWholesale || 0)), 0
+    );
+    const economia = this.items.reduce((s, i) => {
+      if (i.priceWholesale && i.priceRetail) return s + i.quantity * (i.priceRetail - i.priceWholesale);
+      return s;
+    }, 0);
+
+    if (this.totalItems)   this.totalItems.textContent   = totalItems;
+    if (this.totalGeneral) this.totalGeneral.textContent = `R$ ${totalGeral.toFixed(2)}`;
+    if (this.totalEconomy) this.totalEconomy.textContent =
+      economia > 0 ? `R$ ${economia.toFixed(2)}` : 'R$ 0,00';
+  }
+
+  // ────────────── MINI DASHBOARD ──────────────
+  _updateMiniDash() {
+    const container = document.getElementById('miniDashContainer');
+    const budgetEl  = document.getElementById('miniDashBudget');
+    const spentEl   = document.getElementById('miniDashSpent');
+
+    if (!container || !budgetEl || !spentEl) return;
+
+    if (this.monthlyBudget > 0) {
+      container.style.display = 'flex';
+
+      const budgetValue = this.monthlyBudget;
+      const spentValue  = this._currentMonthSpent();
+
+      budgetEl.textContent = `R$ ${budgetValue.toFixed(2)}`;
+      spentEl.textContent  = `R$ ${spentValue.toFixed(2)}`;
+
+      const card = document.getElementById('miniDashSpentCard');
+      if (card && spentValue > budgetValue) {
+        card.style.color = 'var(--danger)';
+      } else if (card) {
+        card.style.color = 'var(--txt-1)';
+      }
+    } else {
+      container.style.display = 'none';
+    }
+  }
+
+  _currentMonthSpent() {
+    const now = new Date();
+    return this.savedListsMeta
+      .filter(l =>
+        new Date(l.date).getMonth()    === now.getMonth() &&
+        new Date(l.date).getFullYear() === now.getFullYear()
+      )
+      .reduce((s, l) => s + (l.total || 0), 0);
+  }
+
+  // ─────────────── SALVAR LISTA ───────────────
+  async _openSaveList() {
+    const go = confirm('Deseja salvar a lista atual?');
+    if (!go) return;
+
+    const dateInput = document.getElementById('listDateInput');
+    if (dateInput) dateInput.valueAsDate = new Date();
+
+    const marketInput = document.getElementById('marketInput');
+    if (marketInput) marketInput.value = '';
+
+    this._resetPaymentRows();
+    UI.showModal('saveListModal');
+  }
+
+  async _confirmSaveList() {
+    const listName = document.getElementById('listNameInput')?.value.trim()
+      || `Lista ${new Date().toLocaleDateString()}`;
+
+    const rawDate  = document.getElementById('listDateInput')?.value
+      || new Date().toISOString().split('T')[0];
+
+    const market   = document.getElementById('marketInput')?.value || '';
+    const total    = this.items.reduce(
+      (sum, i) => sum + i.quantity * (i.priceRetail || i.priceWholesale || 0), 0
+    );
+    const payments = this._getPaymentValues();
+
+    const listMeta = {
+      id:   this.activeListId || Date.now().toString(),
+      name: listName,
+      date: rawDate,
+      market,
+      total,
+      payments,
+      type: this.currentListType,
+      items: this.items,
+    };
+
+    const index = this.savedListsMeta.findIndex(m => m.id === listMeta.id);
+    const metaOnly = {
+      id: listMeta.id, name: listName, date: rawDate,
+      market, total, type: listMeta.type
+    };
+    if (index >= 0) this.savedListsMeta[index] = metaOnly;
+    else            this.savedListsMeta.unshift(metaOnly);
+
+    await Storage.saveItems(this.user.id, this.items, this.currentListType);
+    await Storage.saveLists(this.user.id, this.savedListsMeta);
+    UI.hideModal('saveListModal');
+    UI.showToast(`Lista "${listName}" salva! 💾`);
+  }
+
+  _resetPaymentRows() {
+    const container = document.getElementById('pmRows');
+    if (!container) return;
+    const totalValue = this.items
+      .reduce((s, i) => s + i.quantity * (i.priceRetail || i.priceWholesale || 0), 0)
+      .toFixed(2);
+
+    container.innerHTML = `
+      <div class="pay-row">
+        <select class="pay-method">
+          <option>Pix</option>
+          <option>Dinheiro</option>
+          <option>Cartão crédito</option>
+          <option>Cartão débito</option>
+          <option>VR/VA</option>
+        </select>
+        <input type="number" class="pay-value" placeholder="Valor" step="0.01" min="0" value="${totalValue}">
+        <button type="button" class="pay-remove btn-remove">✕</button>
+      </div>`;
+  }
+
+  _addPaymentRow() {
+    const container = document.getElementById('pmRows');
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'pay-row';
+    row.innerHTML = `
+      <select class="pay-method">
+        <option>Pix</option>
+        <option>Dinheiro</option>
+        <option>Cartão crédito</option>
+        <option>Cartão débito</option>
+        <option>VR/VA</option>
+      </select>
+      <input type="number" class="pay-value" placeholder="0.00" step="0.01" min="0">
+      <button type="button" class="pay-remove btn-remove">✕</button>
+    `;
+    container.appendChild(row);
+  }
+
+  _getPaymentValues() {
+    const rows = document.querySelectorAll('.pay-row');
+    return Array.from(rows).map(r => ({
+      method: r.querySelector('.pay-method')?.value || '',
+      value:  parseFloat(r.querySelector('.pay-value')?.value) || 0
     }));
   }
 
-  async render() {
-    const filtered = this._getFiltered();
-    const totals = Calculator.calculateTotals(this.items);
+  // ─────────────── HISTÓRICO ───────────────
+  async _openHistory() {
+    this.savedListsMeta = await Storage.getLists(this.user.id);
+    const container = document.getElementById('historyList');
+    if (!container) return;
 
-    UI.renderItems(filtered, {
-      onToggle: idx => this.toggleItem(idx),
-      onEdit: idx => this.editItem(idx),
-      onDelete: idx => this.deleteItem(idx),
-      onHistory: idx => this.showPriceHistory(idx),
-      getEmoji: cat => this._getCatEmoji(cat)
-    });
-
-    UI.updateTotals(totals);
-    UI.updateProgress(this.items);
-
-        // ── ATUALIZAÇÃO DO DASHBOARD E MINI CARDS ──
-    const dashboardData = await Storage.getDashboardData();
-    if (dashboardData) {
-      // 1. Atualiza a tela de Dashboard (se estiver aberta)
-      const budgetEl = document.getElementById('dashBudget');
-      const spentEl = document.getElementById('dashSpent');
-      const progressFillEl = document.getElementById('dashProgressFill');
-      const progressTextEl = document.getElementById('dashProgressText');
-
-      if (budgetEl) budgetEl.textContent = `R$ ${dashboardData.budget.toFixed(2).replace('.', ',')}`;
-      if (spentEl) spentEl.textContent = `R$ ${dashboardData.totalSpent.toFixed(2).replace('.', ',')}`;
-
-      if (progressFillEl) {
-        progressFillEl.style.width = `${dashboardData.percentage}%`;
-        if (dashboardData.percentage >= 100) progressFillEl.style.backgroundColor = '#ef4444';
-        else if (dashboardData.percentage >= 80) progressFillEl.style.backgroundColor = '#f59e0b';
-        else progressFillEl.style.backgroundColor = '#10b981';
-      }
-      if (progressTextEl) progressTextEl.textContent = `${Math.round(dashboardData.percentage)}% da meta`;
-
-      // 2. Atualiza os Mini Cards na tela inicial (Index)
-      const miniDashContainer = document.getElementById('miniDashContainer');
-      const miniBudgetEl = document.getElementById('miniDashBudget');
-      const miniSpentEl = document.getElementById('miniDashSpent');
-      const miniSpentCard = document.getElementById('miniDashSpentCard');
-
-      if (miniDashContainer && miniBudgetEl && miniSpentEl && miniSpentCard) {
-        // Só exibe os cards se o usuário tiver definido uma meta maior que zero
-        if (dashboardData.budget > 0) {
-          miniDashContainer.style.display = 'flex';
-          miniBudgetEl.textContent = `R$ ${dashboardData.budget.toFixed(2).replace('.', ',')}`;
-          miniSpentEl.textContent = `R$ ${dashboardData.totalSpent.toFixed(2).replace('.', ',')}`;
-
-          // Limpa as classes de cor e aplica a nova baseada na porcentagem
-          miniSpentCard.classList.remove('status-good', 'status-warning', 'status-danger');
-
-          if (dashboardData.percentage >= 100) {
-            miniSpentCard.classList.add('status-danger');
-          } else if (dashboardData.percentage >= 80) {
-            miniSpentCard.classList.add('status-warning');
-          } else {
-            miniSpentCard.classList.add('status-good');
-          }
-        } else {
-          miniDashContainer.style.display = 'none';
-        }
-      }
+    if (this.savedListsMeta.length === 0) {
+      container.innerHTML = '<p style="color:var(--txt-2);text-align:center;">Nenhuma lista salva ainda.</p>';
+    } else {
+      container.innerHTML = this.savedListsMeta.map(l => `
+        <div class="history-item">
+          <span>${l.name}</span>
+          <span>${l.date}</span>
+          <span>R$ ${(l.total || 0).toFixed(2)}</span>
+          <span>${l.market || ''}</span>
+          <button data-id="${l.id}" class="btn btn-secondary btn-sm history-load">Carregar</button>
+          <button data-id="${l.id}" class="btn btn-danger btn-sm history-delete">🗑️</button>
+        </div>`).join('');
     }
 
-// ═══════════════════════════════════════════════════════════════
-// INICIALIZAÇÃO DA APLICAÇÃO
-// ═══════════════════════════════════════════════════════════════
+    container.querySelectorAll('.history-load').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        UI.hideModal('historyModal');
+        await this._loadListById(id);
+      });
+    });
+
+    container.querySelectorAll('.history-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        UI.showConfirm('Excluir esta lista?', async () => {
+          this.savedListsMeta = this.savedListsMeta.filter(m => m.id !== id);
+          await Storage.saveLists(this.user.id, this.savedListsMeta);
+          this._openHistory();
+          UI.showToast('Lista excluída');
+        });
+      });
+    });
+
+    UI.showModal('historyModal');
+  }
+
+  async _loadListById(id) {
+    const saved = await Storage.getListById(this.user.id, id);
+    if (saved) {
+      this.items = saved.items;
+      this.activeListId = id;
+      this.currentListType = saved.type || this._detectTypeFromItems(this.items);
+      this._updateCategories();
+      this.render();
+      UI.showToast('Lista carregada!');
+    }
+  }
+
+  _detectTypeFromItems(/* items */) {
+    return 'Supermercado';
+  }
+
+  // ─────────────── COMPARAÇÃO ───────────────
+  async _openCompare() {
+    this.savedListsMeta = await Storage.getLists(this.user.id);
+    const sel1 = document.getElementById('compareList1');
+    const sel2 = document.getElementById('compareList2');
+
+    if (sel1 && sel2) {
+      const opts = this.savedListsMeta
+        .map(l => `<option value="${l.id}">${l.name} (${l.date})</option>`)
+        .join('');
+      sel1.innerHTML = `<option value="">Selecione...</option>` + opts;
+      sel2.innerHTML = `<option value="">Selecione...</option>` + opts;
+    }
+    UI.showModal('compareModal');
+  }
+
+  async _executeCompare() {
+    const id1 = document.getElementById('compareList1')?.value;
+    const id2 = document.getElementById('compareList2')?.value;
+    if (!id1 || !id2) return;
+
+    const lista1 = await Storage.getListById(this.user.id, id1);
+    const lista2 = await Storage.getListById(this.user.id, id2);
+    const resDiv = document.getElementById('compareResults');
+    if (!resDiv) return;
+
+    if (!lista1 || !lista2) {
+      resDiv.innerHTML = '<p>Uma das listas não foi encontrada.</p>';
+      return;
+    }
+
+    const names1 = lista1.items.map(i => i.name);
+    const names2 = lista2.items.map(i => i.name);
+    const added   = names2.filter(n => !names1.includes(n));
+    const removed = names1.filter(n => !names2.includes(n));
+    const common  = names1.filter(n =>  names2.includes(n));
+
+    resDiv.innerHTML = `
+      <p><strong>Adicionados:</strong> ${added.join(', ')   || 'nenhum'}</p>
+      <p><strong>Removidos:</strong>   ${removed.join(', ') || 'nenhum'}</p>
+      <p><strong>Em comum:</strong> ${common.length} itens</p>
+    `;
+  }
+
+  // ─────────────── SUGESTÕES ───────────────
+  _openSuggestions() {
+    if (!this.suggestionManager) {
+      this.suggestionManager = new SuggestionManager(this.priceHistoryCache, this.items);
+    }
+
+    const suggestions = this.suggestionManager.generate(this.currentListType);
+    const tabsEl    = document.getElementById('suggestTypeTabs');
+    const listEl    = document.getElementById('suggestList');
+    const summaryEl = document.getElementById('suggestSummary');
+
+    if (!tabsEl || !listEl) return;
+
+    tabsEl.innerHTML = Object.keys(this.listTypes).map(type => {
+      const count = suggestions[type]?.length || 0;
+      return `<button class="suggest-tab ${type === this.currentListType ? 'active' : ''}" data-type="${type}">
+        ${this.listTypes[type].emoji} ${type} (${count})
+      </button>`;
+    }).join('');
+
+    if (summaryEl) {
+      summaryEl.innerHTML = `<p>🔁 Baseado nos seus últimos <strong>${Object.keys(this.priceHistoryCache).length}</strong> produtos.</p>`;
+    }
+
+    this._renderSuggestionItems(suggestions[this.currentListType] || []);
+
+    tabsEl.querySelectorAll('.suggest-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabsEl.querySelectorAll('.suggest-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const type = tab.dataset.type;
+        this._renderSuggestionItems(suggestions[type] || []);
+      });
+    });
+
+    document.getElementById('suggestSelectAll')?.addEventListener('click', () => {
+      document.querySelectorAll('#suggestList .suggest-item').forEach(el => el.classList.add('selected'));
+    });
+    document.getElementById('suggestClearAll')?.addEventListener('click', () => {
+      document.querySelectorAll('#suggestList .suggest-item').forEach(el => el.classList.remove('selected'));
+    });
+
+    UI.showModal('suggestModal');
+  }
+
+  _renderSuggestionItems(items) {
+    const listEl = document.getElementById('suggestList');
+    if (!listEl) return;
+
+    listEl.innerHTML = items.map(item => `
+      <div class="suggest-item" data-name="${item.name}" data-category="${item.category}">
+        <span class="suggest-emoji">${this._catEmoji(item.category)}</span>
+        <span class="suggest-name">${item.name}</span>
+        <span class="suggest-price">R$ ${item.price.toFixed(2)}</span>
+      </div>`).join('');
+
+    listEl.querySelectorAll('.suggest-item').forEach(el => {
+      el.addEventListener('click', () => el.classList.toggle('selected'));
+    });
+  }
+
+  _createFromSuggestions() {
+    const selected = document.querySelectorAll('#suggestList .suggest-item.selected');
+    if (selected.length === 0) {
+      UI.showToast('Selecione pelo menos um item.');
+      return;
+    }
+
+    const newItems = Array.from(selected).map(el => ({
+      id: Date.now().toString() + Math.random(),
+      name: el.dataset.name,
+      category: el.dataset.category,
+      unit: 'unidade',
+      quantity: 1,
+      priceWholesale: 0,
+      priceRetail: parseFloat(
+        el.querySelector('.suggest-price')?.textContent.replace('R$', '').trim()
+      ) || 0,
+      completed: false
+    }));
+
+    this.items = [...this.items, ...newItems];
+    this._saveToStorage();
+    UI.hideModal('suggestModal');
+    this.render();
+    UI.showToast(`${newItems.length} itens adicionados!`);
+  }
+
+  // ─────────────── CONFIGURAÇÕES ───────────────
+  _openConfig() {
+    if (this.user) {
+      const meta = this.user.user_metadata || {};
+      const nameEl  = document.getElementById('profileName');
+      const photoEl = document.getElementById('profilePhotoUrl');
+      if (nameEl)  nameEl.value  = meta.nome || meta.apelido || '';
+      if (photoEl) photoEl.value = meta.photo_url || '';
+    }
+
+    this._renderCustomCategories();
+
+    const display = document.getElementById('currentListTypeDisplay');
+    if (display) display.textContent = this.currentListType;
+
+    const budgetInput = document.getElementById('monthlyBudgetInput');
+    if (budgetInput) budgetInput.value = this.monthlyBudget || '';
+
+    UI.showModal('configModal');
+  }
+
+  async _saveProfile() {
+    const nome        = document.getElementById('profileName')?.value.trim();
+    const photoUrl    = document.getElementById('profilePhotoUrl')?.value.trim();
+    const newPassword = document.getElementById('profileNewPassword')?.value;
+
+    if (nome) {
+      await Auth.updateProfile({ nome, photo_url: photoUrl || null });
+    }
+
+    if (newPassword) {
+      await Auth.updatePassword(newPassword);
+      UI.showToast('Senha atualizada! 🔐');
+    }
+
+    UI.showToast('Perfil salvo!');
+    this._updateMenuProfile();
+  }
+
+  async _deleteAccount() {
+    UI.showConfirm(
+      'Tem certeza que deseja deletar sua conta? Essa ação não pode ser desfeita.',
+      async () => {
+        await Auth.deleteAccount();
+        await Auth.signOut();
+        this.items = [];
+        localStorage.clear();
+        this._forceAuth();
+        UI.showToast('Conta deletada.');
+      }
+    );
+  }
+
+  _openGeneralSettings() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const newTheme     = currentTheme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', newTheme);
+    UI.applyTheme(newTheme);
+    UI.showToast(`Tema ${newTheme} ativado!`);
+  }
+
+  async _changeListType() {
+    UI.showListTypeSelection(this.listTypes, type => {
+      this.currentListType = type;
+      this._updateCategories();
+      this._saveToStorage();
+      this.render();
+      const display = document.getElementById('currentListTypeDisplay');
+      if (display) display.textContent = type;
+    });
+  }
+
+  async _addCustomCategory() {
+    const nameInput  = document.getElementById('newCategoryName');
+    const emojiInput = document.getElementById('newCategoryEmoji');
+
+    const name  = nameInput?.value.trim();
+    const emoji = emojiInput?.value.trim() || '📦';
+
+    if (!name) return UI.showToast('Nome da categoria obrigatório.');
+
+    if (this.customCategories.some(c => c.name === name)) {
+      UI.showToast('Essa categoria já existe.');
+      return;
+    }
+
+    this.customCategories.push({ name, emoji });
+    await Storage.saveCustomCategories(this.user.id, this.customCategories);
+    this._updateCategories();
+    this._renderCustomCategories();
+
+    if (nameInput)  nameInput.value  = '';
+    if (emojiInput) emojiInput.value = '';
+    UI.showToast(`Categoria ${emoji} ${name} adicionada!`);
+  }
+
+  _renderCustomCategories() {
+    const container = document.getElementById('customCategoriesList');
+    if (!container) return;
+
+    container.innerHTML = this.customCategories.map(c => `
+      <div class="custom-cat-item">
+        <span>${c.emoji} ${c.name}</span>
+        <button class="cat-remove" data-name="${c.name}">✕</button>
+      </div>`).join('');
+
+    container.querySelectorAll('.cat-remove').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.name;
+        this.customCategories = this.customCategories.filter(c => c.name !== name);
+        await Storage.saveCustomCategories(this.user.id, this.customCategories);
+        this._updateCategories();
+        this._renderCustomCategories();
+        UI.showToast('Categoria removida.');
+      });
+    });
+  }
+
+  _downloadBackup() {
+    const data = {
+      items: this.items,
+      customCategories: this.customCategories,
+      priceHistoryCache: this.priceHistoryCache,
+      savedListsMeta: this.savedListsMeta,
+      version: '3.0',
+      exportDate: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `backup-lista-compras-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    UI.showToast('Backup baixado!');
+  }
+
+  async _restoreBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.items) throw new Error('Arquivo inválido.');
+
+        UI.showConfirm('Restaurar backup substituirá os dados atuais. Continuar?', async () => {
+          this.items             = data.items;
+          this.customCategories  = data.customCategories  || [];
+          this.priceHistoryCache = data.priceHistoryCache || {};
+          this.savedListsMeta    = data.savedListsMeta    || [];
+
+          await this._saveToStorage();
+          await Storage.saveCustomCategories(this.user.id, this.customCategories);
+          await Storage.savePriceHistory(this.user.id, this.priceHistoryCache);
+          await Storage.saveLists(this.user.id, this.savedListsMeta);
+
+          this._updateCategories();
+          this.render();
+          UI.showToast('Backup restaurado com sucesso! ✅');
+        });
+      } catch (err) {
+        UI.showToast('Erro ao restaurar: arquivo inválido.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
+  _inviteFriends() {
+    const link = 'https://listadecompras.app';
+    if (navigator.share) {
+      navigator.share({
+        title: 'Lista de Compras Inteligente',
+        text:  'Organize suas compras de forma inteligente!',
+        url:   link,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(link).then(() => UI.showToast('Link copiado!'));
+    }
+  }
+
+  async _saveBudget() {
+    const input = document.getElementById('monthlyBudgetInput');
+    const value = parseFloat(input?.value) || 0;
+
+    this.monthlyBudget = value;
+    await Storage.saveBudget(this.user.id, value);
+    this._updateMiniDash();
+    UI.showToast(`Meta mensal de R$ ${value.toFixed(2)} salva!`);
+  }
+} // FIM DA CLASSE ShoppingList
+
+
+/* ============================================================
+   SuggestionManager
+   ============================================================ */
+
+class SuggestionManager {
+  constructor(priceHistoryCache = {}, currentItems = []) {
+    this.history      = priceHistoryCache;
+    this.currentItems = currentItems;
+    this.cycleDays    = 7;
+  }
+
+  generate(/* currentListType */) {
+    const suggestions = {};
+    const allTypes = ['Supermercado', 'Feira livre', 'Farmácia', 'Petshop', 'Material escolar'];
+    allTypes.forEach(type => { suggestions[type] = []; });
+
+    const currentNames = new Set(this.currentItems.map(i => i.name.toLowerCase()));
+
+    const categoryToType = {
+      'Alimentos':  'Supermercado',
+      'Hortifruti': 'Feira livre',
+      'Carnes':     'Supermercado',
+      'Limpeza':    'Supermercado',
+      'Higiene':    'Farmácia',
+      'Bebidas':    'Supermercado',
+      'Papelaria':  'Material escolar',
+      'Outros':     'Supermercado'
+    };
+
+    for (const [itemName, entries] of Object.entries(this.history)) {
+      if (currentNames.has(itemName.toLowerCase())) continue;
+      if (!entries || entries.length === 0) continue;
+
+      const lastEntry    = entries[entries.length - 1];
+      const lastDate     = new Date(lastEntry.date);
+      const daysSinceLast = (Date.now() - lastDate) / (1000 * 60 * 60 * 24);
+
+      if (daysSinceLast < this.cycleDays && entries.length < 3) continue;
+
+      const category = lastEntry.category || 'Outros';
+      const type     = categoryToType[category] || 'Supermercado';
+      const price    = lastEntry.ws || lastEntry.rt || 0;
+
+      suggestions[type].push({
+        name: itemName,
+        category,
+        price,
+        lastDate: lastEntry.date
+      });
+    }
+
+    for (const type in suggestions) {
+      suggestions[type].sort((a, b) => new Date(b.lastDate) - new Date(a.lastDate));
+    }
+
+    return suggestions;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   INICIALIZAÇÃO DO APP (Autenticação obrigatória)
+   ═══════════════════════════════════════════════════════ */
+
 const app = new ShoppingList();
 
-// Aguarda o DOM carregar e o Supabase inicializar
-document.addEventListener('DOMContentLoaded', () => {
-  // Pequeno delay para garantir que o cliente do Supabase esteja pronto
-  setTimeout(() => {
-    app.initApp();
-  }, 500);
+document.addEventListener('DOMContentLoaded', async () => {
+  // Guarda uma referência ao container principal
+  const container = document.querySelector('.container');
+
+  // Esconde a UI principal até sabermos se o usuário está logado
+  if (container) container.style.visibility = 'hidden';
+
+  // ─────────────────────────────────────────────
+  // 1. Verifica se já existe sessão ativa
+  // ─────────────────────────────────────────────
+  let user = null;
+  try {
+    const { data } = await Auth.getUser();
+    user = data?.user || null;
+  } catch (e) {
+    user = null;
+  }
+
+  if (user) {
+    // ✅ Usuário logado → esconde auth, mostra app, inicializa
+    const authModal = document.getElementById('authModal');
+    if (authModal) {
+      authModal.classList.remove('show', 'active', 'visible');
+      authModal.style.display = 'none';
+      authModal.removeAttribute('data-force');
+    }
+
+    app.user = user;
+    if (container) container.style.visibility = 'visible';
+
+    await app.initApp();
+  } else {
+    // 🔒 Não logado → força auth, container continua oculto
+    app._forceAuth();
+    // O container será revelado no evento SIGNED_IN abaixo
+  }
+
+  // ─────────────────────────────────────────────
+  // 2. Escuta mudanças de autenticação
+  // ─────────────────────────────────────────────
+  if (!window.supabaseClient) {
+    console.error(
+      '[app.js] window.supabaseClient não definido. ' +
+      'Verifique se js/supabase-client.js foi carregado antes de js/app.js.'
+    );
+    return;
+  }
+
+  window.supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      // Login (ou recuperação de sessão) bem-sucedido
+      app.user = session.user;
+      app._hideForceAuth();
+      if (container) container.style.visibility = 'visible';
+      await app.initApp();
+    } else if (event === 'SIGNED_OUT') {
+      // Logout: limpa tudo e volta para a tela de login
+      app.user = null;
+      app.items = [];
+      app.priceHistoryCache = {};
+      app.customCategories  = [];
+      app.savedListsMeta    = [];
+
+      // Zera flags para permitir rebind de elementos/eventos caso necessário
+      app._initialized = false;
+
+      app.render();
+      if (container) container.style.visibility = 'hidden';
+      app._forceAuth();
+    }
+  });
 });
