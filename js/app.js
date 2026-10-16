@@ -1,11 +1,11 @@
 /* ============================================================
-   app.js :: Lista de Compras Inteligente (v3.1)
+   app.js :: Lista de Compras Inteligente (v3.4)
    ─────────────────────────────────────────────────────────────
    • Força login antes do acesso
-   • Alinhado com storage.js (getCurrentList / saveNewList / ...)
-   • Alinhado com o schema Supabase (tabelas lists, list_items,
-     payments, custom_categories, price_history, user_settings)
-   • Auth.getUser() normalizado (aceita {data:{user}} ou user direto)
+   • Aguarda Auth.ready antes de decidir a tela inicial
+   • Alinhado com auth.js v3.2, storage.js v3.2 e ui.js v3.2
+   • Alinhado com o schema Supabase (lists, list_items, payments,
+     custom_categories, price_history, user_settings)
    ─────────────────────────────────────────────────────────────
    ============================================================ */
 
@@ -42,13 +42,27 @@ class ShoppingList {
   // ═══════════════════════════════════════════════════════════
 
   /**
-   * Normaliza o retorno de Auth.getUser() — aceita:
-   *   • { data: { user: {...} } }   (Supabase oficial)
-   *   • { user: {...} }             (wrapper)
-   *   • user direto                 (wrapper síncrono)
+   * Resolve o usuário autenticado — sempre busca do Supabase (fresco).
+   *
+   * Prefere getSession() (assíncrono, sempre atual) sobre getUser()
+   * (síncrono, do cache). Isso evita a race condition onde o app.js
+   * roda antes do auth.js terminar de ler a sessão.
+   *
+   * Aceita retornos:
+   *   • { data: { user } }  (Supabase oficial)
+   *   • { user }            (wrapper)
+   *   • user direto         (wrapper síncrono)
    */
   async _resolveUser() {
     try {
+      // 1. Preferir getSession() — assíncrono, sempre fresco
+      if (typeof Auth.getSession === 'function') {
+        const session = await Auth.getSession();
+        const u = session?.user || null;
+        if (u && u.id) return u;
+      }
+
+      // 2. Fallback: getUser() (síncrono, cache)
       const res = await Auth.getUser();
       const u = res?.data?.user || res?.user || res;
       return (u && u.id) ? u : null;
@@ -105,7 +119,7 @@ class ShoppingList {
       this._elementsBound = true;
     }
 
-    // Carrega tudo em paralelo — 1 chamada de rede só
+    // Carrega dados
     await this._loadAllData();
 
     // Tema
@@ -150,7 +164,6 @@ class ShoppingList {
     // 2. Categorias personalizadas
     try {
       const cats = await Storage.getCustomCategories() || [];
-      // Normaliza: garante name/emoji
       this.customCategories = cats.map(c => ({
         name:  c.name,
         emoji: c.emoji || '📦',
@@ -161,7 +174,7 @@ class ShoppingList {
       this.customCategories = [];
     }
 
-    // 3. Histórico de preços — normaliza para { nome: [entradas] }
+    // 3. Histórico de preços
     try {
       const raw = await Storage.getPriceHistory() || [];
       this.priceHistoryCache = this._normalizePriceHistory(raw);
@@ -179,7 +192,7 @@ class ShoppingList {
       this.monthlyBudget = 0;
     }
 
-    // 5. Listas salvas (histórico) — já vem com items + payments
+    // 5. Listas salvas (histórico)
     try {
       this.savedLists = await Storage.getSavedLists() || [];
     } catch (e) {
@@ -204,7 +217,6 @@ class ShoppingList {
         date: row.recorded_date || new Date().toISOString()
       });
     }
-    // Ordena cada lista por data crescente
     for (const k in map) {
       map[k].sort((a, b) => new Date(a.date) - new Date(b.date));
     }
@@ -303,25 +315,11 @@ class ShoppingList {
     ['historyButton', 'compareListsButton', 'configButton', 'btnOpenLogin']
       .forEach(id => document.getElementById(id)?.addEventListener('click', closeMenu));
 
-    // ── Botão Entrar
-    document.getElementById('btnOpenLogin')?.addEventListener('click', () => {
-      const authModal = document.getElementById('authModal');
-      if (!authModal) return;
-      authModal.classList.add('show', 'active', 'visible');
-      authModal.style.display = 'flex';
-      const closeBtn = document.getElementById('authClose');
-      if (closeBtn) closeBtn.style.display = '';
-      authModal.removeAttribute('data-force');
-    });
+    // ── Botão "Entrar / Cadastrar": gerenciado pelo auth.js v3.2
+    //    (não duplicar listener aqui)
 
-    // ── Logout
-    document.getElementById('btnLogout')?.addEventListener('click', async () => {
-      try { await Auth.signOut(); } catch (e) { console.error(e); }
-      this._resetState();
-      this.render();
-      this._updateMenuProfile();
-      this._forceAuth();
-    });
+    // ── Botão "Sair": gerenciado pelo auth.js v3.2
+    //    O app.js reage via onAuthStateChange('SIGNED_OUT') no final
 
     // ── Limpar lista
     this.clearAllBtn?.addEventListener('click', () => {
@@ -396,7 +394,7 @@ class ShoppingList {
     document.getElementById('backupFileInput')?.addEventListener('change', (e) => this._restoreBackup(e));
     document.getElementById('btnInviteFriends')?.addEventListener('click', () => this._inviteFriends());
     document.getElementById('versionButton')?.addEventListener('click', () => {
-      alert('Versão 3.1 – alinhamento com schema Supabase, autenticação robusta e normalização do histórico de preços.');
+      alert('Versão 3.4 – boot sincronizado com auth.js, perfil unificado e histórico de preços normalizado.');
     });
 
     // ── Sugestões
@@ -431,15 +429,24 @@ class ShoppingList {
 
     if (this.user) {
       const meta = this.user.user_metadata || {};
-      const nome = meta.nome || meta.apelido || 'Usuário';
+      const nome = meta.apelido || meta.nome || 'Usuário';
+      const photoUrl = meta.avatar_url || meta.photo_url || '';
+
       if (nameEl)  nameEl.textContent  = nome;
       if (emailEl) emailEl.textContent = this.user.email || '';
-      if (initialsEl) initialsEl.textContent = nome.charAt(0).toUpperCase();
-      if (photoEl && meta.photo_url) {
-        photoEl.src = meta.photo_url;
-        photoEl.style.display = 'block';
-        if (initialsEl) initialsEl.style.display = 'none';
+
+      if (photoEl && initialsEl) {
+        if (photoUrl) {
+          photoEl.src = photoUrl;
+          photoEl.style.display = 'block';
+          initialsEl.style.display = 'none';
+        } else {
+          initialsEl.textContent = nome.charAt(0).toUpperCase();
+          photoEl.style.display  = 'none';
+          initialsEl.style.display = 'flex';
+        }
       }
+
       if (loginBtn)  loginBtn.style.display  = 'none';
       if (logoutBtn) logoutBtn.style.display = 'block';
     } else {
@@ -502,16 +509,13 @@ class ShoppingList {
       completed: false
     });
 
-    // Persiste no draft
     await this._persistItems();
     this.render();
 
-    // Limpa input
     if (this.itemInput) {
       this.itemInput.value = '';
       this.itemInput.focus();
     }
-    // Zera preços pra facilitar próximo item
     if (this.wsPriceInput) this.wsPriceInput.value = '';
     if (this.rtPriceInput) this.rtPriceInput.value = '';
   }
@@ -529,7 +533,6 @@ class ShoppingList {
     this.render();
   }
 
-  /** Salva os itens no draft do Supabase (via Storage). */
   async _persistItems() {
     try {
       await Storage.saveCurrentList(this.items);
@@ -539,10 +542,8 @@ class ShoppingList {
     }
   }
 
-  /** Gera UUID v4 para compatibilidade com colunas uuid no DB. */
   _newId() {
     if (crypto?.randomUUID) return crypto.randomUUID();
-    // Fallback
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
       const r = Math.random() * 16 | 0;
       const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -590,7 +591,6 @@ class ShoppingList {
       this.emptyState.style.display = filtered.length === 0 ? 'block' : 'none';
     }
 
-    // Listeners (delegação leve)
     document.querySelectorAll('#itemList .item-check').forEach(cb => {
       cb.onchange = (e) => {
         const id = e.target.closest('.item').dataset.id;
@@ -608,7 +608,6 @@ class ShoppingList {
     this._updateMiniDash();
   }
 
-  /** Escapa HTML básico para evitar injeção em nomes de produto. */
   _escape(str) {
     return String(str)
       .replace(/&/g, '&amp;')
@@ -718,7 +717,7 @@ class ShoppingList {
           date: rawDate,
           market,
           totalGeneral: totalGeral,
-          list_type: this.currentListType  // forward-compat
+          list_type: this.currentListType
         },
         this.items,
         payments
@@ -727,17 +726,15 @@ class ShoppingList {
       UI.hideModal('saveListModal');
       UI.showToast(`Lista "${listName}" salva! 💾`);
 
-      // Recarrega histórico e budget do banco (para refletir o novo total)
       try {
         this.savedLists = await Storage.getSavedLists() || [];
         const dash = await Storage.getDashboardData();
         this.monthlyBudget = dash?.budget || this.monthlyBudget;
       } catch (e) { console.error(e); }
 
-      // Limpa lista atual (o draft já foi finalizado para 'completed')
       this.items = [];
       this.activeListId = null;
-      await this._loadCurrentDraft();   // busca/cria novo draft vazio
+      await this._loadCurrentDraft();
       this.render();
       this._updateMiniDash();
 
@@ -801,10 +798,6 @@ class ShoppingList {
     container.appendChild(row);
   }
 
-  /**
-   * Retorna [{ method, amount }] — a chave é `amount` para casar
-   * com a coluna `payments.amount` NOT NULL do schema.
-   */
   _getPaymentValues() {
     const rows = document.querySelectorAll('.pay-row');
     return Array.from(rows).map(r => ({
@@ -872,11 +865,6 @@ class ShoppingList {
     UI.showModal('historyModal');
   }
 
-  /**
-   * Carrega uma lista do histórico para a memória.
-   * OBS: os itens passam a compor o draft atual; ao salvar,
-   * uma NOVA entrada em `lists` será criada.
-   */
   _loadListById(id) {
     const saved = this.savedLists.find(l => l.id === id);
     if (!saved) {
@@ -884,7 +872,6 @@ class ShoppingList {
       return;
     }
 
-    // Converte o formato do DB para o formato interno do app
     const mappedItems = (saved.list_items || []).map(row => ({
       id: row.id || this._newId(),
       name: row.name,
@@ -906,7 +893,6 @@ class ShoppingList {
   }
 
   _detectTypeFromItems(items) {
-    // Heurística simples: se ≥60% das categorias batem com feira/farmácia/etc
     if (!items.length) return 'Supermercado';
     const counts = {};
     for (const it of items) {
@@ -1000,7 +986,6 @@ class ShoppingList {
   // ═══════════════════════════════════════════════════════════
 
   _openSuggestions() {
-    // Recria o manager a cada abertura para refletir itens atuais
     this.suggestionManager = new SuggestionManager(this.priceHistoryCache, this.items);
     const suggestions = this.suggestionManager.generate();
 
@@ -1097,8 +1082,12 @@ class ShoppingList {
   _openConfig() {
     if (this.user) {
       const meta = this.user.user_metadata || {};
-      if (this.profileName)  this.profileName.value  = meta.nome || meta.apelido || '';
-      if (this.profilePhotoUrl) this.profilePhotoUrl.value = meta.photo_url || '';
+      if (this.profileName) {
+        this.profileName.value = meta.apelido || meta.nome || '';
+      }
+      if (this.profilePhotoUrl) {
+        this.profilePhotoUrl.value = meta.avatar_url || meta.photo_url || '';
+      }
     }
 
     this._renderCustomCategories();
@@ -1110,24 +1099,37 @@ class ShoppingList {
   }
 
   async _saveProfile() {
-    const nome        = document.getElementById('profileName')?.value.trim();
+    const apelido     = document.getElementById('profileName')?.value.trim();
     const photoUrl    = document.getElementById('profilePhotoUrl')?.value.trim();
     const newPassword = document.getElementById('profileNewPassword')?.value;
 
     try {
-      if (nome) {
-        await Auth.updateProfile({ nome, photo_url: photoUrl || null });
+      // Atualiza metadados (usa `apelido` + `avatar_url` conforme auth.js v3.2)
+      if (apelido || photoUrl) {
+        await Auth.updateProfile({
+          apelido:    apelido || undefined,
+          avatar_url: photoUrl || undefined
+        });
       }
+
+      // Atualiza senha (se preenchida)
       if (newPassword) {
-        await Auth.updatePassword(newPassword);
-        UI.showToast('Senha atualizada! 🔐');
+        const ok = await Auth.updatePassword(newPassword);
+        if (ok) {
+          UI.showToast('Senha atualizada! 🔐');
+          const passEl = document.getElementById('profileNewPassword');
+          if (passEl) passEl.value = '';
+        } else {
+          UI.showToast('Erro ao atualizar senha.');
+          return;
+        }
       }
+
       UI.showToast('Perfil salvo!');
-      // Re-lê o user
       this.user = await this._resolveUser();
       this._updateMenuProfile();
     } catch (e) {
-      console.error(e);
+      console.error('[app] _saveProfile:', e);
       UI.showToast('Erro ao salvar perfil.');
     }
   }
@@ -1137,10 +1139,9 @@ class ShoppingList {
       'Tem certeza que deseja deletar sua conta? Essa ação não pode ser desfeita.',
       async () => {
         try {
-          await Auth.deleteAccount();
-          await Auth.signOut();
+          await Auth.deleteAccount();   // já faz signOut internamente
         } catch (e) {
-          console.error(e);
+          console.error('[app] deleteAccount:', e);
         }
         this._resetState();
         localStorage.clear();
@@ -1213,17 +1214,23 @@ class ShoppingList {
         <button class="cat-remove" data-name="${this._escape(c.name)}">✕</button>
       </div>`).join('');
 
-    // Remove só da memória local (Storage não tem DELETE de categoria)
     container.querySelectorAll('.cat-remove').forEach(btn => {
       btn.addEventListener('click', async () => {
         const name = btn.dataset.name;
+
+        // Se o Storage tem deleteCustomCategory, persiste no banco
+        try {
+          if (typeof Storage.deleteCustomCategory === 'function') {
+            await Storage.deleteCustomCategory(name);
+          }
+        } catch (e) {
+          console.warn('[app] deleteCustomCategory:', e);
+        }
+
         this.customCategories = this.customCategories.filter(c => c.name !== name);
-        // OBS: sem método de DELETE no Storage, apenas removemos localmente.
-        //      Ao recarregar, virá do banco novamente. Implemente
-        //      Storage.deleteCustomCategory() para persistir.
         this._updateCategories();
         this._renderCustomCategories();
-        UI.showToast('Categoria removida (localmente).');
+        UI.showToast('Categoria removida.');
       });
     });
   }
@@ -1238,7 +1245,7 @@ class ShoppingList {
       customCategories: this.customCategories,
       priceHistoryCache: this.priceHistoryCache,
       savedLists: this.savedLists,
-      version: '3.1',
+      version: '3.4',
       exportDate: new Date().toISOString()
     };
 
@@ -1263,9 +1270,6 @@ class ShoppingList {
         if (!data.items) throw new Error('Arquivo inválido.');
 
         UI.showConfirm('Restaurar backup substituirá os dados atuais. Continuar?', async () => {
-          // Restaura APENAS o que pode ser restaurado:
-          // itens (draft), categorias customizadas. Histórico completo
-          // não dá para empurrar de volta pro Supabase via esta API.
           this.items = data.items || [];
           await this._persistItems();
 
@@ -1371,10 +1375,8 @@ class SuggestionManager {
       const lastDate  = new Date(lastEntry.date);
       const daysSince = (Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
 
-      // Só sugere se passou o ciclo OU se já comprou 3+ vezes
       if (daysSince < this.cycleDays && entries.length < 3) continue;
 
-      // Sem categoria no schema → usa heurística por nome
       const category = this._guessCategory(itemName);
       const type     = this._typeFromCategory(category);
       const price    = lastEntry.rt || lastEntry.ws || 0;
@@ -1423,15 +1425,27 @@ class SuggestionManager {
 
 /* ═══════════════════════════════════════════════════════════
    INICIALIZAÇÃO — Autenticação obrigatória
+   ────────────────────────────────────────────────────────────
+   v3.4: aguarda Auth.ready antes de decidir a tela inicial.
+   Isso elimina a race condition onde o app.js rodava antes do
+   auth.js terminar de ler a sessão do Supabase — o que forçava
+   o usuário a clicar "Entrar" uma segunda vez mesmo já logado.
    ═══════════════════════════════════════════════════════════ */
 
 const app = new ShoppingList();
 
 document.addEventListener('DOMContentLoaded', async () => {
   const container = document.querySelector('.container');
+
+  // Esconde a UI principal até decidirmos o que mostrar
   if (container) container.style.visibility = 'hidden';
 
-  // 1. Verifica sessão ativa
+  // ⬇️ CORREÇÃO PRINCIPAL: espera o auth.js terminar de ler a sessão
+  if (Auth && Auth.ready && typeof Auth.ready.then === 'function') {
+    try { await Auth.ready; } catch {}
+  }
+
+  // 1. Verifica sessão ativa (com o cache do auth.js já populado)
   let user = null;
   try {
     user = await app._resolveUser();
@@ -1440,6 +1454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (user) {
+    // ✅ Logado → esconde auth, mostra app, inicializa
     const authModal = document.getElementById('authModal');
     if (authModal) {
       authModal.classList.remove('show', 'active', 'visible');
@@ -1451,6 +1466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (container) container.style.visibility = 'visible';
     await app.initApp();
   } else {
+    // 🔒 Não logado → força auth
     app._forceAuth();
   }
 
@@ -1469,7 +1485,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       app._hideForceAuth();
       if (container) container.style.visibility = 'visible';
 
-      // Só inicializa se ainda não foi (evita init duplo)
       if (!app._initialized) {
         await app.initApp();
       }
