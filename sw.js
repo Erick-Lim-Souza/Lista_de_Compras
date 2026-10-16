@@ -7,48 +7,93 @@
  *   • Network-first for navigation, cache-first for static assets
  *   • Auto-activation: new SW takes over without waiting
  *   • Stale-while-revalidate for everything else
+ *   • ✅ Skips non-GET requests (POST/PUT/DELETE never cached)
+ *   • ✅ Skips Supabase API (never cache auth/data)
+ *   • ✅ Resilient install (one bad URL doesn't kill the SW)
  * ─────────────────────────────────────────────────────────────
  */
 
-const CACHE_VER   = 'lista-compras-v3';
+const CACHE_VER = 'lista-compras-v3.1';
 const CACHE_STATIC = `${CACHE_VER}-static`;
 
-// Assets that must be cached on install (app shell)
+// Assets que devem ser cacheados no install (app shell).
+// Mantenha só o que EXISTE de verdade no repositório.
 const SHELL = [
   '/',
   '/index.html',
-  '/versao.html',
-  '/dashboard.html',
   '/styles.css',
+  '/js/supabase-client.js',
+  '/js/auth.js',
   '/js/calculator.js',
   '/js/storage.js',
   '/js/ui.js',
   '/js/export.js',
   '/js/app.js',
-  '/manifest.json',
+  // 'manifest.json'  → deixa de fora: Codespaces intercepta
+  //                    (o navegador busca o manifest sozinho e
+  //                     cacheá-lo não traz benefício real)
+];
+
+// URLs externas (fontes, CDN) — cacheadas separadamente e de forma opcional
+const SHELL_EXTERNAL = [
   'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
 ];
 
-// ── Install: cache the app shell ───────────────────────────────────
+// ── Helper: nunca cachear nada que não seja GET ────────────────────
+function isCacheable(request) {
+  return request.method === 'GET';
+}
+
+// ── Helper: nunca cachear chamadas da API do Supabase ──────────────
+function isSupabaseUrl(url) {
+  // Ajuste se o seu projeto Supabase tiver outro domínio.
+  return url.hostname.endsWith('.supabase.co') ||
+         url.hostname.endsWith('.supabase.in');
+}
+
+// ── Install: cacheia o app shell de forma resiliente ───────────────
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_STATIC)
-      .then(cache => cache.addAll(SHELL))
-      .then(() => self.skipWaiting())   // take over immediately
+    (async () => {
+      const cache = await caches.open(CACHE_STATIC);
+
+      // 1. Cacheia assets locais — 1 falha não derruba os outros
+      for (const url of SHELL) {
+        try {
+          await cache.add(url);
+        } catch (err) {
+          console.warn('[sw] Falha ao cachear (local):', url, err.message);
+        }
+      }
+
+      // 2. Cacheia recursos externos (fontes, CDN) — opcional
+      for (const url of SHELL_EXTERNAL) {
+        try {
+          await cache.add(url);
+        } catch (err) {
+          console.warn('[sw] Falha ao cachear (externo):', url, err.message);
+        }
+      }
+
+      // 3. Ativa imediatamente
+      await self.skipWaiting();
+    })()
   );
 });
 
-// ── Activate: delete old caches ────────────────────────────────────
+// ── Activate: limpa caches antigos ─────────────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(key => key !== CACHE_STATIC)
-          .map(key => caches.delete(key))
+    caches.keys()
+      .then(keys =>
+        Promise.all(
+          keys
+            .filter(key => key !== CACHE_STATIC)
+            .map(key => caches.delete(key))
+        )
       )
-    ).then(() => self.clients.claim())   // control all open tabs
+      .then(() => self.clients.claim())
   );
 });
 
@@ -57,51 +102,80 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle http/https
+  // 1. Só http(s)
   if (!url.protocol.startsWith('http')) return;
 
-  // Navigation requests (HTML pages) — network-first, fallback to cache
+  // 2. 🔴 CRÍTICO: nunca interceptar métodos diferentes de GET
+  //    (Cache API rejeita POST/PUT/DELETE → quebra o app)
+  if (!isCacheable(request)) return;
+
+  // 3. 🔴 CRÍTICO: nunca cachear a API do Supabase
+  //    (auth tokens, dados de listas, etc. devem sempre vir da rede)
+  if (isSupabaseUrl(url)) return;
+
+  // 4. Nunca cachear manifest.json em Codespaces (redirecionado p/ login)
+  if (url.pathname.endsWith('/manifest.json')) return;
+
+  // ─── Navigation requests (HTML) — network-first com fallback ───
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then(response => {
-          // Cache a fresh copy
-          const clone = response.clone();
-          caches.open(CACHE_STATIC).then(c => c.put(request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_STATIC)
+              .then(c => c.put(request, clone))
+              .catch(() => {});   // silencioso: put pode falhar, sem drama
+          }
           return response;
         })
-        .catch(() => caches.match(request).then(r => r || caches.match('/')))
+        .catch(() =>
+          caches.match(request).then(r => r || caches.match('/index.html'))
+        )
     );
     return;
   }
 
-  // Static assets (CSS, JS, fonts, images) — cache-first
+  // ─── Static assets — cache-first ────────────────────────────────
   if (
-    url.pathname.match(/\.(css|js|png|ico|webp|woff2?|ttf)$/) ||
+    url.pathname.match(/\.(css|js|png|jpe?g|svg|ico|webp|woff2?|ttf)$/) ||
     url.hostname.includes('fonts.g') ||
-    url.hostname.includes('cloudflare')
+    url.hostname.includes('cloudflare') ||
+    url.hostname.includes('jsdelivr')
   ) {
     event.respondWith(
       caches.match(request).then(cached => {
         if (cached) return cached;
-        return fetch(request).then(response => {
-          const clone = response.clone();
-          caches.open(CACHE_STATIC).then(c => c.put(request, clone));
-          return response;
-        });
+        return fetch(request)
+          .then(response => {
+            if (response.ok) {
+              const clone = response.clone();
+              caches.open(CACHE_STATIC)
+                .then(c => c.put(request, clone))
+                .catch(() => {});
+            }
+            return response;
+          })
+          .catch(() => cached || Response.error());
       })
     );
     return;
   }
 
-  // Everything else — stale-while-revalidate
+  // ─── Everything else — stale-while-revalidate ──────────────────
   event.respondWith(
     caches.open(CACHE_STATIC).then(cache =>
       cache.match(request).then(cached => {
-        const fresh = fetch(request).then(response => {
-          cache.put(request, response.clone());
-          return response;
-        });
+        const fresh = fetch(request)
+          .then(response => {
+            // Só atualiza cache se a resposta for OK
+            if (response.ok) {
+              cache.put(request, response.clone()).catch(() => {});
+            }
+            return response;
+          })
+          .catch(() => cached);   // 🔴 fallback se a rede falhar
+
         return cached || fresh;
       })
     )
