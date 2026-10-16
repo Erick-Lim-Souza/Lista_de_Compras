@@ -1,25 +1,42 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Gerencie sua lista de compras de forma inteligente. Funciona offline, instale no seu dispositivo.">
   <meta name="keywords" content="lista de compras, pwa, app compras, offline">
-  <link rel="icon" href="img/icons/icons8-cesta-de-compras-128.ico" type="image/x-icon">
-  <link rel="apple-touch-icon" sizes="180x180" href="img/icons/icons8-cesta-de-compras-128.ico">
-  <meta name="msapplication-TileColor" content="#00C48C">
   <meta name="theme-color" content="#00C48C">
-  <title>Lista de Compras</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- PWA iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ListaCompras">
+
+  <!-- PWA Android / Windows -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="msapplication-TileColor" content="#00C48C">
+  <meta name="msapplication-tap-highlight" content="no">
+
+  <title>Lista de Compras Inteligente</title>
+
+  <link rel="icon" href="img/icons/icons8-cesta-de-compras-128.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/icons/icons8-cesta-de-compras-256.png">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700&display=swap" rel="stylesheet">
-  <link rel="manifest" href="manifest.json">
-  
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
   <style>
     /* ============================================================
-       Modais ocultos por padrão — só aparecem com .show/.active/.visible
+       Modais ocultos por padrão
        ============================================================ */
     .modal { display: none; }
 
@@ -86,41 +103,328 @@
       margin-bottom: 15px;
     }
     .terms-wrapper input { width: auto; margin: 0; }
+
+    /* ============================================================
+       Noscript
+       ============================================================ */
+    .noscript-warning {
+      background: #ff5c5c;
+      color: #fff;
+      padding: 16px;
+      text-align: center;
+      font-weight: 600;
+      font-family: system-ui, sans-serif;
+    }
+
+    /* Link estilizado como botão do header */
+    .header-actions a.btn {
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ============================================================
+       MODAL DE INSTALAÇÃO PWA
+       ============================================================ */
+    .install-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: installFadeIn .25s ease-out;
+    }
+    .install-modal.show { display: flex; }
+
+    .install-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      cursor: pointer;
+    }
+
+    .install-card {
+      position: relative;
+      width: 100%;
+      max-width: 440px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: var(--bg-card, #fff);
+      color: var(--txt-1, #0c0c0e);
+      border-radius: 24px;
+      padding: 32px 24px 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      animation: installPopIn .35s cubic-bezier(.34, 1.4, .64, 1);
+    }
+
+    @keyframes installFadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    @keyframes installPopIn {
+      from { opacity: 0; transform: scale(.9) translateY(20px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .install-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--txt-3, #888);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s, color .15s;
+    }
+    .install-close:hover {
+      background: rgba(0, 0, 0, 0.06);
+      color: var(--txt-1, #000);
+    }
+
+    .install-hero {
+      position: relative;
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .install-logo {
+      width: 88px;
+      height: 88px;
+      border-radius: 22px;
+      box-shadow:
+        0 8px 24px rgba(0, 196, 140, 0.35),
+        0 0 0 4px rgba(0, 196, 140, 0.10);
+      object-fit: cover;
+      background: #fff;
+    }
+
+    .install-badge {
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      background: linear-gradient(135deg, #00C48C, #00A576);
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      box-shadow: 0 4px 12px rgba(0, 196, 140, 0.4);
+    }
+
+    .install-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      text-align: center;
+      margin: 0 0 8px;
+      color: var(--txt-1, #0c0c0e);
+      line-height: 1.25;
+    }
+
+    .install-subtitle {
+      font-size: 0.9rem;
+      text-align: center;
+      color: var(--txt-2, #555);
+      margin: 0 0 22px;
+      line-height: 1.4;
+    }
+
+    .install-features {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .install-features li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: rgba(0, 196, 140, 0.06);
+      border: 1px solid rgba(0, 196, 140, 0.15);
+      border-radius: 12px;
+    }
+
+    .install-feat-icon {
+      font-size: 1.3rem;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .install-features li div {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.3;
+    }
+
+    .install-features li strong {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--txt-1, #0c0c0e);
+    }
+
+    .install-features li small {
+      font-size: 0.76rem;
+      color: var(--txt-2, #666);
+    }
+
+    .install-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .install-btn {
+      flex: 1;
+      padding: 14px 16px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .1s, box-shadow .15s, background .15s;
+    }
+
+    .install-btn:active { transform: scale(.97); }
+
+    .install-btn-ghost {
+      background: transparent;
+      color: var(--txt-2, #666);
+      border: 1px solid var(--line, #ddd);
+      flex: 0 0 auto;
+      padding: 14px 20px;
+    }
+    .install-btn-ghost:hover {
+      background: rgba(0, 0, 0, 0.04);
+      color: var(--txt-1, #000);
+    }
+
+    .install-btn-primary {
+      background: linear-gradient(135deg, #00C48C, #00A576);
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(0, 196, 140, 0.35);
+    }
+    .install-btn-primary:hover {
+      box-shadow: 0 8px 26px rgba(0, 196, 140, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .install-hint {
+      font-size: 0.82rem;
+      text-align: center;
+      color: var(--txt-2, #666);
+      margin: 4px 0 0;
+      min-height: 0;
+      padding: 0;
+      line-height: 1.5;
+    }
+    .install-hint:not(:empty) {
+      padding: 12px;
+      background: rgba(0, 196, 140, 0.08);
+      border-radius: 10px;
+      margin-top: 8px;
+    }
+
+    /* Tema escuro */
+    [data-theme="dark"] .install-card {
+      background: #1a1a1f;
+      color: #f0f0f0;
+    }
+    [data-theme="dark"] .install-title { color: #f0f0f0; }
+    [data-theme="dark"] .install-subtitle,
+    [data-theme="dark"] .install-hint { color: #aaa; }
+    [data-theme="dark"] .install-close:hover { background: rgba(255,255,255,.08); }
+    [data-theme="dark"] .install-features li {
+      background: rgba(0, 196, 140, 0.08);
+      border-color: rgba(0, 196, 140, 0.2);
+    }
+    [data-theme="dark"] .install-features li strong { color: #f0f0f0; }
+    [data-theme="dark"] .install-features li small  { color: #999; }
+    [data-theme="dark"] .install-btn-ghost {
+      color: #ccc;
+      border-color: #333;
+    }
+    [data-theme="dark"] .install-btn-ghost:hover {
+      background: rgba(255,255,255,.06);
+      color: #fff;
+    }
+
+    @media (max-width: 480px) {
+      .install-card {
+        padding: 28px 20px 20px;
+        border-radius: 20px;
+      }
+      .install-title { font-size: 1.2rem; }
+      .install-hero, .install-logo { width: 76px; height: 76px; }
+    }
   </style>
 </head>
 <body>
+
+<noscript>
+  <div class="noscript-warning">
+    ⚠️ Este app precisa de JavaScript para funcionar. Ative no seu navegador.
+  </div>
+</noscript>
+
 <div class="container">
 
   <header class="header">
-    <h1>🛒 Lista de Compras <span class="badge">v3.0</span></h1>
-    <div class="header-actions">
-      <button id="suggestButton" class="btn btn-secondary btn-sm suggest-btn" title="Sugestão automática baseada no ciclo de compras">💡 Sugestões</button>
-      <button onclick="location.href='dashboard.html'" class="btn btn-secondary btn-sm" title="Dashboard de gastos">📊</button>
-      <button id="darkModeToggle" class="theme-toggle" aria-label="Alternar tema">
+    <h1>🛒 Lista de Compras <span class="badge">v3.3</span></h1>
+    <nav class="header-actions" aria-label="Ações principais">
+      <button id="suggestButton" class="btn btn-secondary btn-sm suggest-btn"
+              type="button"
+              title="Sugestão automática baseada no ciclo de compras">
+        💡 Sugestões
+      </button>
+
+      <a href="dashboard.html" class="btn btn-secondary btn-sm"
+         title="Dashboard de gastos" aria-label="Abrir dashboard de gastos">
+        📊
+      </a>
+
+      <button id="darkModeToggle" class="theme-toggle" type="button"
+              aria-label="Alternar tema">
         <span class="theme-icon">🌙</span>
       </button>
-      <button id="mainMenuBtn" class="btn btn-secondary btn-sm" title="Menu Principal">☰</button>
-    </div>
-  </header>
 
-  <div id="installBanner">
-    <span class="install-icon">📲</span>
-    <div class="install-text">
-      <strong>Instalar no dispositivo</strong>
-      <span>Acesso offline · Ícone na tela inicial · Mais rápido</span>
-    </div>
-    <div class="install-actions">
-      <button id="installBtn"     class="btn-install">Instalar</button>
-      <button id="installDismiss" class="btn-install-x" aria-label="Fechar">✕</button>
-    </div>
-  </div>
+      <button id="mainMenuBtn" class="btn btn-secondary btn-sm" type="button"
+              title="Menu Principal" aria-label="Abrir menu">
+        ☰
+      </button>
+    </nav>
+  </header>
 
   <div class="list-management">
     <div class="list-info">
       <div class="current-list"><span id="currentListName">Lista Atual</span></div>
       <div class="list-actions">
-        <button id="saveListButton" class="btn btn-primary btn-sm">💾 Salvar</button>
-        <button id="newListButton"  class="btn btn-secondary btn-sm">📄 Nova</button>
+        <button id="saveListButton" class="btn btn-primary btn-sm"   type="button">💾 Salvar</button>
+        <button id="newListButton"  class="btn btn-secondary btn-sm" type="button">📄 Nova</button>
       </div>
     </div>
   </div>
@@ -137,11 +441,12 @@
     </div>
   </div>
 
-  <form class="input-form" id="itemForm">
+  <form class="input-form" id="itemForm" autocomplete="off">
     <div class="input-group" style="grid-template-columns:1fr">
       <div class="input-field">
         <label for="itemInput">Item</label>
-        <input type="text" id="itemInput" placeholder="Nome do item..." required autocomplete="off">
+        <input type="text" id="itemInput" placeholder="Nome do item..."
+               required autocomplete="off" autocapitalize="sentences">
       </div>
     </div>
     <div class="input-group">
@@ -174,18 +479,21 @@
     <div class="input-group">
       <div class="input-field">
         <label for="quantityInput">Quantidade</label>
-        <input type="number" id="quantityInput" placeholder="1" min="0.001" step="0.001" value="1">
+        <input type="number" id="quantityInput" placeholder="1"
+               min="0.001" step="0.001" value="1" inputmode="decimal">
       </div>
-      <div class="input-field" style="visibility:hidden"></div>
+      <div class="input-field" style="visibility:hidden" aria-hidden="true"></div>
     </div>
     <div class="input-group">
       <div class="input-field">
         <label for="priceWholesaleInput">Atacado (R$)</label>
-        <input type="number" id="priceWholesaleInput" placeholder="0,00" min="0" step="0.01">
+        <input type="number" id="priceWholesaleInput" placeholder="0,00"
+               min="0" step="0.01" inputmode="decimal">
       </div>
       <div class="input-field">
         <label for="priceRetailInput">Varejo (R$)</label>
-        <input type="number" id="priceRetailInput" placeholder="0,00" min="0" step="0.01">
+        <input type="number" id="priceRetailInput" placeholder="0,00"
+               min="0" step="0.01" inputmode="decimal">
       </div>
     </div>
     <button type="submit" id="addButton" class="btn btn-primary">➕ Adicionar Item</button>
@@ -207,17 +515,17 @@
   </div>
 
   <div class="filter-section">
-    <div class="filter-buttons">
-      <button class="filter-btn active" data-filter="all">Todos</button>
-      <button class="filter-btn" data-filter="pending">Pendentes</button>
-      <button class="filter-btn" data-filter="completed">Comprados</button>
+    <div class="filter-buttons" role="tablist" aria-label="Filtros da lista">
+      <button class="filter-btn active" data-filter="all"       type="button" role="tab" aria-selected="true">Todos</button>
+      <button class="filter-btn"        data-filter="pending"   type="button" role="tab" aria-selected="false">Pendentes</button>
+      <button class="filter-btn"        data-filter="completed" type="button" role="tab" aria-selected="false">Comprados</button>
     </div>
   </div>
 
   <div class="list-container">
-    <ul id="itemList"></ul>
-    <div id="emptyState" class="empty-state">
-      <div class="empty-icon">🛒</div>
+    <ul id="itemList" aria-live="polite"></ul>
+    <div id="emptyState" class="empty-state" role="status">
+      <div class="empty-icon" aria-hidden="true">🛒</div>
       <h3>LISTA VAZIA</h3>
       <p>Adicione seu primeiro item para começar</p>
     </div>
@@ -225,15 +533,15 @@
 
   <div class="action-buttons">
     <div class="button-group">
-      <button id="clearAllButton" class="btn btn-danger">🗑️ Limpar</button>
-      <button id="shareButton"    class="btn btn-secondary">📤 Compartilhar</button>
+      <button id="clearAllButton" class="btn btn-danger"    type="button">🗑️ Limpar</button>
+      <button id="shareButton"    class="btn btn-secondary" type="button">📤 Compartilhar</button>
     </div>
     <div class="export-buttons">
       <span class="export-label">Exportar lista</span>
       <div class="export-group">
-        <button id="exportTxt"   class="btn btn-export">TXT</button>
-        <button id="exportPdf"   class="btn btn-export">PDF</button>
-        <button id="exportExcel" class="btn btn-export">CSV</button>
+        <button id="exportTxt"   class="btn btn-export" type="button">TXT</button>
+        <button id="exportPdf"   class="btn btn-export" type="button">PDF</button>
+        <button id="exportExcel" class="btn btn-export" type="button">CSV</button>
       </div>
     </div>
   </div>
@@ -246,7 +554,8 @@
           <p class="footer-copy">&copy;2025 Todos os direitos reservados.</p>
         </div>
         <div class="footer-credits">
-          <p>By. <a href="https://greenmonster.netlify.app/" target="_blank" class="footer-link">Green Monster Project</a></p>
+          <p>By. <a href="https://greenmonster.netlify.app/" target="_blank"
+                    rel="noopener noreferrer" class="footer-link">Green Monster Project</a></p>
         </div>
       </div>
       <div class="footer-accent-bar"></div>
@@ -256,20 +565,97 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
+     MODAL DE INSTALAÇÃO PWA
+     ═══════════════════════════════════════════════════════ -->
+<div id="installModal"
+     class="install-modal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="installTitle"
+     aria-hidden="true">
+
+  <div class="install-backdrop" data-close="install"></div>
+
+  <div class="install-card" role="document">
+    <button type="button" id="installClose"
+            class="install-close" aria-label="Fechar">✕</button>
+
+    <div class="install-hero">
+      <img src="img/icons/icons8-cesta-de-compras-256.png"
+           alt="" class="install-logo" aria-hidden="true">
+      <span class="install-badge">PWA</span>
+    </div>
+
+    <h2 id="installTitle" class="install-title">
+      Instale o app no seu celular
+    </h2>
+    <p class="install-subtitle">
+      Acesso rápido direto da tela inicial — sem loja, sem complicação.
+    </p>
+
+    <ul class="install-features" aria-label="Vantagens de instalar">
+      <li>
+        <span class="install-feat-icon" aria-hidden="true">⚡</span>
+        <div>
+          <strong>Abre em 1 toque</strong>
+          <small>Sem precisar abrir o navegador</small>
+        </div>
+      </li>
+      <li>
+        <span class="install-feat-icon" aria-hidden="true">📴</span>
+        <div>
+          <strong>Funciona sem internet</strong>
+          <small>Suas listas ficam sempre disponíveis</small>
+        </div>
+      </li>
+      <li>
+        <span class="install-feat-icon" aria-hidden="true">💾</span>
+        <div>
+          <strong>Não ocupa espaço</strong>
+          <small>Sem download da loja de apps</small>
+        </div>
+      </li>
+      <li>
+        <span class="install-feat-icon" aria-hidden="true">🔔</span>
+        <div>
+          <strong>Sempre atualizado</strong>
+          <small>Você recebe a versão mais recente sozinho</small>
+        </div>
+      </li>
+    </ul>
+
+    <div class="install-actions">
+      <button type="button" id="installDecline"
+              class="install-btn install-btn-ghost">
+        Agora não
+      </button>
+      <button type="button" id="installAccept"
+              class="install-btn install-btn-primary">
+        📲 Instalar agora
+      </button>
+    </div>
+
+    <p class="install-hint" id="installHint" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
      MODAIS
      ═══════════════════════════════════════════════════════ -->
 
-<!-- Modal do Menu Principal -->
-<div id="mainMenuModal" class="modal">
+<!-- Menu Principal -->
+<div id="mainMenuModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
   <div class="modal-content">
+    <h3 id="menuTitle" style="position:absolute;left:-9999px;">Menu Principal</h3>
 
     <div class="menu-profile-section" style="text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
       <div class="profile-avatar" style="width: 70px; height: 70px; border-radius: 50%; background-color: var(--primary, #00C48C); color: white; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 10px; overflow: hidden;">
         <span id="menuUserInitials">👤</span>
-        <img id="menuUserPhoto" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="Foto do Usuário">
+        <img id="menuUserPhoto" alt="Foto do Usuário"
+             style="width: 100%; height: 100%; object-fit: cover; display: none;">
       </div>
-      <h4 id="menuUserName" style="margin: 0; color: var(--txt-1); font-size: 1.2rem;">Visitante</h4>
-      <p id="menuUserEmail" style="margin: 5px 0 0; font-size: 0.85rem; color: var(--txt-2);">Faça login para sincronizar</p>
+      <h4 id="menuUserName"  style="margin: 0; color: var(--txt-1); font-size: 1.2rem;">Visitante</h4>
+      <p  id="menuUserEmail" style="margin: 5px 0 0; font-size: 0.85rem; color: var(--txt-2);">Faça login para sincronizar</p>
     </div>
 
     <div class="config-section">
@@ -278,97 +664,101 @@
         Defina um limite de gastos para acompanhar no seu mini dashboard.
       </p>
       <div style="display: flex; gap: 10px;">
-        <input
-          type="number"
-          id="monthlyBudgetInput"
-          placeholder="Ex: 1500,00"
-          step="0.01"
-          min="0"
-          style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);"
-        >
-        <button type="button" id="saveBudgetBtn" style="padding: 10px 15px; border-radius: 8px; background: var(--primary-color, #3b82f6); color: white; border: none; font-weight: bold; cursor: pointer;">
+        <input type="number" id="monthlyBudgetInput" placeholder="Ex: 1500,00"
+               step="0.01" min="0" inputmode="decimal"
+               style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <button type="button" id="saveBudgetBtn"
+                style="padding: 10px 15px; border-radius: 8px; background: var(--primary-color, #3b82f6); color: white; border: none; font-weight: bold; cursor: pointer;">
           Salvar
         </button>
       </div>
     </div>
 
     <div class="menu-list-container" style="display: flex; flex-direction: column; gap: 12px;">
-      <button id="historyButton" class="btn btn-secondary">📋 Histórico de Listas</button>
-      <button id="compareListsButton" class="btn btn-secondary">📊 Comparar Listas</button>
-      <button id="configButton" class="btn btn-secondary">⚙️ Configurações</button>
-      <button id="btnOpenLogin" class="btn btn-primary" style="display: block;">Entrar / Cadastrar</button>
-      <button id="btnLogout" class="btn btn-danger" style="display: none;">🚪 Sair da Conta</button>
+      <button id="historyButton"       class="btn btn-secondary" type="button">📋 Histórico de Listas</button>
+      <button id="compareListsButton"  class="btn btn-secondary" type="button">📊 Comparar Listas</button>
+      <button id="configButton"        class="btn btn-secondary" type="button">⚙️ Configurações</button>
+      <button id="btnOpenLogin"        class="btn btn-primary"   type="button" style="display: block;">Entrar / Cadastrar</button>
+      <button id="btnLogout"           class="btn btn-danger"    type="button" style="display: none;">🚪 Sair da Conta</button>
     </div>
     <div class="modal-buttons" style="margin-top: 20px;">
-      <button id="mainMenuClose" class="btn btn-secondary">Fechar</button>
+      <button id="mainMenuClose" class="btn btn-secondary" type="button">Fechar</button>
     </div>
   </div>
 </div>
 
-<!-- Modal de Autenticação (Supabase) -->
-<div id="authModal" class="modal">
+<!-- Autenticação -->
+<div id="authModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
   <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
 
-    <!-- VIEW DE LOGIN -->
+    <!-- LOGIN -->
     <div id="loginView" class="auth-view active">
-      <h3>🛒 Entrar</h3>
+      <h3 id="authTitle">🛒 Entrar</h3>
       <p style="color:var(--txt-2); font-size:0.9rem; margin-bottom:16px; text-align:center;">Acesse sua conta para sincronizar.</p>
-      <form id="loginForm" onsubmit="event.preventDefault();">
+      <form id="loginForm" onsubmit="event.preventDefault();" autocomplete="on">
         <div class="input-group" style="grid-template-columns:1fr; margin-bottom:12px;">
           <div class="input-field">
             <label for="loginEmail">E-mail</label>
-            <input type="email" id="loginEmail" placeholder="Seu e-mail" required>
+            <input type="email" id="loginEmail" placeholder="Seu e-mail"
+                   required autocomplete="email" inputmode="email">
           </div>
         </div>
         <div class="input-group" style="grid-template-columns:1fr; margin-bottom:5px;">
           <div class="input-field password-wrapper">
             <label for="loginPassword">Senha</label>
-            <input type="password" id="loginPassword" placeholder="Sua senha" required>
+            <input type="password" id="loginPassword" placeholder="Sua senha"
+                   required autocomplete="current-password">
             <button type="button" class="toggle-password"
                     aria-label="Mostrar senha"
                     onclick="togglePasswordVisibility('loginPassword', this)"></button>
           </div>
         </div>
         <div style="text-align: right; margin-bottom: 20px;">
-          <a class="auth-link" style="display:inline; margin:0;" onclick="switchAuthView('forgotView')">Esqueci a senha</a>
+          <a class="auth-link" style="display:inline; margin:0;"
+             onclick="switchAuthView('forgotView')" tabindex="0" role="button">Esqueci a senha</a>
         </div>
         <div class="modal-buttons">
           <button type="button" id="btnLoginSubmit" class="btn btn-primary" style="width: 100%;">Entrar</button>
         </div>
-        <a class="auth-link" onclick="switchAuthView('signupView')">Não tem conta? Cadastre-se</a>
+        <a class="auth-link" onclick="switchAuthView('signupView')" tabindex="0" role="button">Não tem conta? Cadastre-se</a>
       </form>
     </div>
 
-    <!-- VIEW DE CADASTRO -->
+    <!-- CADASTRO -->
     <div id="signupView" class="auth-view">
       <h3>📝 Criar Conta</h3>
-      <form id="signupForm" onsubmit="event.preventDefault();">
+      <form id="signupForm" onsubmit="event.preventDefault();" autocomplete="on">
         <div class="input-group" style="margin-bottom:12px;">
           <div class="input-field">
             <label for="signupNome">Nome</label>
-            <input type="text" id="signupNome" placeholder="Seu nome" required>
+            <input type="text" id="signupNome" placeholder="Seu nome"
+                   required autocomplete="given-name" autocapitalize="words">
           </div>
           <div class="input-field">
             <label for="signupSobrenome">Sobrenome</label>
-            <input type="text" id="signupSobrenome" placeholder="Seu sobrenome" required>
+            <input type="text" id="signupSobrenome" placeholder="Seu sobrenome"
+                   required autocomplete="family-name" autocapitalize="words">
           </div>
         </div>
         <div class="input-group" style="grid-template-columns:1fr; margin-bottom:12px;">
           <div class="input-field">
             <label for="signupApelido">Apelido (Como quer ser chamado?)</label>
-            <input type="text" id="signupApelido" placeholder="Ex: Joãozinho" required>
+            <input type="text" id="signupApelido" placeholder="Ex: Joãozinho"
+                   required autocomplete="nickname" autocapitalize="words">
           </div>
         </div>
         <div class="input-group" style="grid-template-columns:1fr; margin-bottom:12px;">
           <div class="input-field">
             <label for="signupEmail">E-mail</label>
-            <input type="email" id="signupEmail" placeholder="Seu melhor e-mail" required>
+            <input type="email" id="signupEmail" placeholder="Seu melhor e-mail"
+                   required autocomplete="email" inputmode="email">
           </div>
         </div>
         <div class="input-group" style="grid-template-columns:1fr; margin-bottom:12px;">
           <div class="input-field password-wrapper">
             <label for="signupPassword">Senha</label>
-            <input type="password" id="signupPassword" placeholder="Mínimo 6 caracteres" required minlength="6">
+            <input type="password" id="signupPassword" placeholder="Mínimo 6 caracteres"
+                   required minlength="6" autocomplete="new-password">
             <button type="button" class="toggle-password"
                     aria-label="Mostrar senha"
                     onclick="togglePasswordVisibility('signupPassword', this)"></button>
@@ -377,7 +767,8 @@
         <div class="input-group" style="grid-template-columns:1fr; margin-bottom:15px;">
           <div class="input-field password-wrapper">
             <label for="signupConfirmPassword">Repetir Senha</label>
-            <input type="password" id="signupConfirmPassword" placeholder="Repita a senha" required minlength="6">
+            <input type="password" id="signupConfirmPassword" placeholder="Repita a senha"
+                   required minlength="6" autocomplete="new-password">
             <button type="button" class="toggle-password"
                     aria-label="Mostrar senha"
                     onclick="togglePasswordVisibility('signupConfirmPassword', this)"></button>
@@ -390,11 +781,11 @@
         <div class="modal-buttons">
           <button type="button" id="btnSignupSubmit" class="btn btn-primary" style="width: 100%;">Criar Conta</button>
         </div>
-        <a class="auth-link" onclick="switchAuthView('loginView')">Já tem conta? Entrar</a>
+        <a class="auth-link" onclick="switchAuthView('loginView')" tabindex="0" role="button">Já tem conta? Entrar</a>
       </form>
     </div>
 
-    <!-- VIEW DE RECUPERAÇÃO DE SENHA -->
+    <!-- RECUPERAÇÃO DE SENHA -->
     <div id="forgotView" class="auth-view">
       <h3>🔑 Recuperar Senha</h3>
       <p style="color:var(--txt-2); font-size:0.9rem; margin-bottom:16px; text-align:center;">Enviaremos um link para redefinir sua senha.</p>
@@ -402,27 +793,29 @@
         <div class="input-group" style="grid-template-columns:1fr; margin-bottom:20px;">
           <div class="input-field">
             <label for="forgotEmail">E-mail</label>
-            <input type="email" id="forgotEmail" placeholder="Seu e-mail cadastrado" required>
+            <input type="email" id="forgotEmail" placeholder="Seu e-mail cadastrado"
+                   required autocomplete="email" inputmode="email">
           </div>
         </div>
         <div class="modal-buttons">
           <button type="button" id="btnForgotSubmit" class="btn btn-primary" style="width: 100%;">Enviar Link</button>
         </div>
-        <a class="auth-link" onclick="switchAuthView('loginView')">Voltar ao Login</a>
+        <a class="auth-link" onclick="switchAuthView('loginView')" tabindex="0" role="button">Voltar ao Login</a>
       </form>
     </div>
 
-    <p id="authMessage" style="text-align:center; font-size:0.85rem; margin-top:12px; min-height:20px;"></p>
+    <p id="authMessage" role="status" aria-live="polite"
+       style="text-align:center; font-size:0.85rem; margin-top:12px; min-height:20px;"></p>
     <div class="modal-buttons" style="margin-top: 10px;">
       <button type="button" id="authClose" class="btn btn-secondary" style="width: 100%;">Cancelar / Fechar</button>
     </div>
-
   </div>
 </div>
 
-<div id="compareModal" class="modal">
+<!-- Comparar Listas -->
+<div id="compareModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="compareTitle">
   <div class="modal-content modal-large">
-    <h3>📊 Comparar Listas</h3>
+    <h3 id="compareTitle">📊 Comparar Listas</h3>
     <div class="compare-selection">
       <div class="compare-field">
         <label for="compareList1">Lista 1</label>
@@ -437,49 +830,54 @@
       <p style="color:var(--txt-3);font-family:var(--mono);font-size:.72rem;">Selecione duas listas para comparar.</p>
     </div>
     <div class="modal-buttons">
-      <button id="compareClose"   class="btn btn-secondary">Fechar</button>
-      <button id="compareExecute" class="btn btn-primary">Comparar</button>
+      <button id="compareClose"   class="btn btn-secondary" type="button">Fechar</button>
+      <button id="compareExecute" class="btn btn-primary"   type="button">Comparar</button>
     </div>
   </div>
 </div>
 
-<div id="confirmModal" class="modal">
+<!-- Confirm -->
+<div id="confirmModal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
   <div class="modal-content">
-    <h3>⚠️ Confirmar</h3>
+    <h3 id="confirmTitle">⚠️ Confirmar</h3>
     <p id="confirmMessage">Tem certeza?</p>
     <div class="modal-buttons">
-      <button id="confirmCancel" class="btn btn-secondary">Cancelar</button>
-      <button id="confirmOk"     class="btn btn-danger">Confirmar</button>
+      <button id="confirmCancel" class="btn btn-secondary" type="button">Cancelar</button>
+      <button id="confirmOk"     class="btn btn-danger"    type="button">Confirmar</button>
     </div>
   </div>
 </div>
 
-<div id="historyModal" class="modal">
+<!-- Histórico -->
+<div id="historyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
   <div class="modal-content">
-    <h3>📋 Histórico de Listas</h3>
+    <h3 id="historyTitle">📋 Histórico de Listas</h3>
     <div id="historyList" class="history-list"></div>
     <div class="modal-buttons">
-      <button id="historyClose" class="btn btn-secondary">Fechar</button>
+      <button id="historyClose" class="btn btn-secondary" type="button">Fechar</button>
     </div>
   </div>
 </div>
 
-<div id="saveListModal" class="modal">
+<!-- Salvar Lista -->
+<div id="saveListModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="saveListTitle">
   <div class="modal-content save-modal-content">
-    <h3>💾 Salvar Lista</h3>
+    <h3 id="saveListTitle">💾 Salvar Lista</h3>
     <div class="new-list-form">
 
-      <input type="text" id="listNameInput" placeholder="Nome da lista..." maxlength="50">
+      <input type="text" id="listNameInput" placeholder="Nome da lista..."
+             maxlength="50" autocomplete="off">
 
       <div class="save-meta-row">
         <div class="save-meta-field">
-          <label class="meta-label">📅 Data da compra</label>
+          <label class="meta-label" for="listDateInput">📅 Data da compra</label>
           <input type="date" id="listDateInput" class="meta-date-input">
         </div>
         <div class="save-meta-field">
-          <label class="meta-label">🏪 Mercado</label>
+          <label class="meta-label" for="marketInput">🏪 Mercado</label>
           <input type="text" id="marketInput" class="meta-market-input"
-            list="marketSuggestions" placeholder="Assaí, Atacadão…" maxlength="40" autocomplete="off">
+                 list="marketSuggestions" placeholder="Assaí, Atacadão…"
+                 maxlength="40" autocomplete="off" autocapitalize="words">
           <datalist id="marketSuggestions">
             <option value="Assaí">
             <option value="Atacadão">
@@ -502,39 +900,43 @@
       </div>
 
       <div class="modal-buttons" style="margin-top:16px">
-        <button id="saveCancel"  class="btn btn-secondary">Cancelar</button>
-        <button id="saveConfirm" class="btn btn-primary">Salvar</button>
+        <button id="saveCancel"  class="btn btn-secondary" type="button">Cancelar</button>
+        <button id="saveConfirm" class="btn btn-primary"   type="button">Salvar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Área de Configurações Expandida -->
-<div id="configModal" class="modal">
+<!-- Configurações -->
+<div id="configModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="configTitle">
   <div class="modal-content" style="max-height: 85vh; overflow-y: auto;">
-    <h3>⚙️ Configurações</h3>
+    <h3 id="configTitle">⚙️ Configurações</h3>
 
     <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
-      <h4 style="margin-bottom: 15px;">👤 Perfil & Conta</h4>
+      <h4 style="margin-bottom: 15px;">👤 Perfil &amp; Conta</h4>
 
       <div class="input-group" style="grid-template-columns:1fr; margin-bottom:10px;">
         <div class="input-field">
           <label for="profileName">Nome / Apelido</label>
-          <input type="text" id="profileName" placeholder="Como prefere ser chamado?">
+          <input type="text" id="profileName" placeholder="Como prefere ser chamado?"
+                 autocomplete="nickname" autocapitalize="words">
         </div>
       </div>
 
       <div class="input-group" style="grid-template-columns:1fr; margin-bottom:10px;">
         <div class="input-field">
           <label for="profilePhotoUrl">URL da Foto (Opcional)</label>
-          <input type="url" id="profilePhotoUrl" placeholder="https://link-da-sua-foto.com/foto.jpg">
+          <input type="url" id="profilePhotoUrl" placeholder="https://link-da-sua-foto.com/foto.jpg"
+                 inputmode="url">
         </div>
       </div>
 
       <div class="input-group" style="grid-template-columns:1fr; margin-bottom:15px;">
         <div class="input-field password-wrapper">
           <label for="profileNewPassword">Nova Senha</label>
-          <input type="password" id="profileNewPassword" placeholder="Deixe em branco para não alterar">
+          <input type="password" id="profileNewPassword"
+                 placeholder="Deixe em branco para não alterar"
+                 autocomplete="new-password">
           <button type="button" class="toggle-password"
                   aria-label="Mostrar senha"
                   onclick="togglePasswordVisibility('profileNewPassword', this)"></button>
@@ -542,104 +944,118 @@
       </div>
 
       <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="btnSaveProfile" class="btn btn-primary btn-sm">Salvar Perfil</button>
-        <button id="btnDeleteAccount" class="btn btn-danger btn-sm">Deletar Conta</button>
+        <button id="btnSaveProfile"   class="btn btn-primary btn-sm" type="button">Salvar Perfil</button>
+        <button id="btnDeleteAccount" class="btn btn-danger  btn-sm" type="button">Deletar Conta</button>
       </div>
     </div>
 
     <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
       <h4 style="margin-bottom: 10px;">⚙️ Gerais</h4>
-      <button id="btnGeneralSettings" class="btn btn-secondary btn-sm">Configurações Gerais</button>
+      <button id="btnGeneralSettings" class="btn btn-secondary btn-sm" type="button">Configurações Gerais</button>
     </div>
 
     <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
       <h4 style="margin-bottom: 10px;">🗂️ Listas e Categorias</h4>
-      <p style="font-size: 0.85rem; margin-bottom: 8px; color: var(--txt-2);">Tipo de Lista → <strong id="currentListTypeDisplay" style="color: var(--txt-1);">Supermercado</strong></p>
-      <button id="changeListType" class="btn btn-secondary btn-sm" style="margin-bottom: 15px;">Alterar Tipo</button>
+      <p style="font-size: 0.85rem; margin-bottom: 8px; color: var(--txt-2);">
+        Tipo de Lista → <strong id="currentListTypeDisplay" style="color: var(--txt-1);">Supermercado</strong>
+      </p>
+      <button id="changeListType" class="btn btn-secondary btn-sm" type="button" style="margin-bottom: 15px;">Alterar Tipo</button>
 
       <h5 style="margin-bottom: 8px; font-size: 0.9rem;">Categorias Personalizadas</h5>
       <div id="customCategoriesList" class="custom-categories"></div>
       <div class="add-category-form">
-        <input type="text" id="newCategoryName"  placeholder="Nome..." maxlength="30">
-        <input type="text" id="newCategoryEmoji" placeholder="🍎" maxlength="2" style="max-width:68px;">
-        <button id="addCustomCategory" class="btn btn-primary btn-sm">+ Add</button>
+        <input type="text" id="newCategoryName"  placeholder="Nome..." maxlength="30" autocapitalize="words">
+        <input type="text" id="newCategoryEmoji" placeholder="🍎" maxlength="8" style="max-width:68px;">
+        <button id="addCustomCategory" class="btn btn-primary btn-sm" type="button">+ Add</button>
       </div>
     </div>
 
     <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
       <h4 style="margin-bottom: 10px;">💾 Backup de Dados</h4>
       <div class="export-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="backupDownload" class="btn btn-backup-dl">⬇ Baixar JSON</button>
-        <button id="backupUpload"   class="btn btn-backup-ul">⬆ Restaurar JSON</button>
-        <input  id="backupFileInput" type="file" accept=".json" style="display:none">
+        <button id="backupDownload" class="btn btn-backup-dl" type="button">⬇ Baixar JSON</button>
+        <button id="backupUpload"   class="btn btn-backup-ul" type="button">⬆ Restaurar JSON</button>
+        <input  id="backupFileInput" type="file" accept=".json" style="display:none" aria-hidden="true">
       </div>
+    </div>
+
+    <div class="config-section" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border, #ddd);">
+      <h4 style="margin-bottom: 10px;">📲 Instalação</h4>
+      <p style="font-size: 0.85rem; margin-bottom: 10px; color: var(--txt-2);">
+        Instale o app na tela inicial para acesso rápido e uso offline.
+      </p>
+      <button id="btnReinstall" class="btn btn-secondary btn-sm" type="button">Mostrar convite de instalação</button>
     </div>
 
     <div class="config-section" style="margin-bottom: 10px;">
       <h4 style="margin-bottom: 10px;">ℹ️ Sobre o App</h4>
-      <p style="font-size: 0.85rem; margin-bottom: 10px; color: var(--txt-2);">Versão: <strong style="color: var(--txt-1);">v3.0</strong></p>
+      <p style="font-size: 0.85rem; margin-bottom: 10px; color: var(--txt-2);">
+        Versão: <strong style="color: var(--txt-1);">v3.3</strong>
+      </p>
       <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="versionButton" class="btn btn-secondary btn-sm">Notas da Versão</button>
-        <button id="btnInviteFriends" class="btn btn-secondary btn-sm">📢 Convidar Amigos</button>
+        <button id="versionButton"    class="btn btn-secondary btn-sm" type="button">Notas da Versão</button>
+        <button id="btnInviteFriends" class="btn btn-secondary btn-sm" type="button">📢 Convidar Amigos</button>
       </div>
     </div>
 
     <div class="modal-buttons" style="margin-top: 20px;">
-      <button id="configClose" class="btn btn-secondary">Voltar</button>
+      <button id="configClose" class="btn btn-secondary" type="button">Voltar</button>
     </div>
   </div>
 </div>
 
-<!-- Histórico de Preços (mini BI) -->
-<div id="priceHistoryModal" class="modal">
+<!-- Histórico de Preços -->
+<div id="priceHistoryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="priceHistoryTitle">
   <div class="modal-content modal-large">
     <h3 id="priceHistoryTitle">📈 Histórico de Preços</h3>
     <div id="priceHistoryContent"></div>
     <div class="modal-buttons">
-      <button id="priceHistoryClose" class="btn btn-secondary">Fechar</button>
+      <button id="priceHistoryClose" class="btn btn-secondary" type="button">Fechar</button>
     </div>
   </div>
 </div>
 
-<!-- ══ SUGGESTION MODAL ══════════════════════════════════════════ -->
-<div id="suggestModal" class="modal">
+<!-- Sugestões -->
+<div id="suggestModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="suggestTitle">
   <div class="modal-content suggest-modal-content">
 
     <div class="suggest-header">
       <div>
-        <h3>💡 Sugestão de Lista</h3>
+        <h3 id="suggestTitle">💡 Sugestão de Lista</h3>
         <p class="suggest-subtitle">Baseada no seu ciclo de compras</p>
       </div>
-      <button id="suggestClose" class="modal-close-btn">✕</button>
+      <button id="suggestClose" class="modal-close-btn" type="button" aria-label="Fechar">✕</button>
     </div>
 
     <div class="suggest-type-tabs" id="suggestTypeTabs"></div>
-    <div class="suggest-summary" id="suggestSummary"></div>
+    <div class="suggest-summary"   id="suggestSummary"></div>
 
     <div class="suggest-list-wrap">
       <div class="suggest-list" id="suggestList"></div>
     </div>
 
     <div class="suggest-actions">
-      <button id="suggestSelectAll" class="btn btn-secondary btn-sm">☑ Todos urgentes</button>
-      <button id="suggestClearAll"  class="btn btn-secondary btn-sm">☐ Limpar</button>
+      <button id="suggestSelectAll" class="btn btn-secondary btn-sm" type="button">☑ Todos urgentes</button>
+      <button id="suggestClearAll"  class="btn btn-secondary btn-sm" type="button">☐ Limpar</button>
       <div class="suggest-create-wrap">
         <span id="suggestCreateHint" class="suggest-create-hint">← Toque em um item para selecionar</span>
-        <button id="suggestCreate" class="btn btn-primary">✚ Criar Lista</button>
+        <button id="suggestCreate" class="btn btn-primary" type="button">✚ Criar Lista</button>
       </div>
     </div>
 
   </div>
 </div>
 
-<!-- MULTI-TYPE SELECTION MODAL -->
-<div id="multiTypeModal" class="modal">
+<!-- Multi-type Selection (reservado para uso futuro) -->
+<div id="multiTypeModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="multiTypeTitle">
   <div class="modal-content multitype-modal-content">
-    <h3>🗂️ Criar lista por tipo</h3>
-    <p class="multitype-subtitle">Você selecionou itens de tipos diferentes.<br>Qual lista quer carregar agora?</p>
+    <h3 id="multiTypeTitle">🗂️ Criar lista por tipo</h3>
+    <p class="multitype-subtitle">
+      Você selecionou itens de tipos diferentes.<br>Qual lista quer carregar agora?
+    </p>
     <div id="multiTypeList" class="multitype-list"></div>
     <div class="modal-buttons">
-      <button id="multiTypeCancel" class="btn btn-secondary">Cancelar</button>
+      <button id="multiTypeCancel" class="btn btn-secondary" type="button">Cancelar</button>
     </div>
   </div>
 </div>
@@ -663,43 +1079,169 @@
 <script src="js/ui.js"></script>
 <script src="js/export.js"></script>
 
-<!-- 5. Inline: apenas PWA, SW e helpers de auth (sem duplicar listeners do app.js) -->
+<!-- 5. Inline: PWA, SW, helpers de auth -->
 <script>
-  /* ============================================================
-     PWA — INSTALAÇÃO
-     ============================================================ */
-  let _deferredInstall = null;
+  /* ══════════════════════════════════════════════════════════════
+     PWA — MODAL DE INSTALAÇÃO
+     ══════════════════════════════════════════════════════════════ */
+  const PWA = (() => {
+    const KEY_DISMISSED = 'pwa-dismissed';
+    const KEY_INSTALLED = 'pwa-installed';
+    const SHOW_DELAY_MS = 5000;
 
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
-    _deferredInstall = e;
-    if (localStorage.getItem('pwa-dismissed') === '1') return;
-    document.getElementById('installBanner')?.classList.add('visible');
-  });
+    let deferredPrompt = null;
+    let modalEl, acceptBtn, declineBtn, closeBtn, hintEl;
+    let scheduled = false;
 
-  document.getElementById('installBtn')?.addEventListener('click', async () => {
-    if (_deferredInstall) {
-      _deferredInstall.prompt();
-      await _deferredInstall.userChoice;
-      _deferredInstall = null;
-      document.getElementById('installBanner')?.classList.remove('visible');
-    } else {
-      alert('Para instalar no iPhone/iPad:\n\n1. Toque em Compartilhar ↑\n2. "Adicionar à Tela Inicial"\n3. Confirme tocando em "Adicionar"');
+    // ── Detecções ──────────────────────────────────────────────
+    const isStandalone = () =>
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+
+    const isIOS = () =>
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    const wasDismissed = () => localStorage.getItem(KEY_DISMISSED) === '1';
+    const wasInstalled = () => localStorage.getItem(KEY_INSTALLED) === '1';
+
+    // ── UI ─────────────────────────────────────────────────────
+    function openModal() {
+      if (!modalEl) return;
+      modalEl.classList.add('show');
+      modalEl.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
     }
-  });
 
-  document.getElementById('installDismiss')?.addEventListener('click', () => {
-    document.getElementById('installBanner')?.classList.remove('visible');
-    localStorage.setItem('pwa-dismissed', '1');
-  });
+    function closeModal({ persist = false } = {}) {
+      if (!modalEl) return;
+      modalEl.classList.remove('show');
+      modalEl.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      if (persist) localStorage.setItem(KEY_DISMISSED, '1');
+    }
 
-  window.addEventListener('appinstalled', () =>
-    document.getElementById('installBanner')?.classList.remove('visible')
-  );
+    function showHint(text) {
+      if (hintEl) hintEl.textContent = text;
+    }
 
-  /* ============================================================
+    // ── Ações ──────────────────────────────────────────────────
+    async function handleAccept() {
+      // iOS não tem prompt nativo — mostra instruções
+      if (isIOS() && !deferredPrompt) {
+        showHint(
+          '👆 No Safari: toque no ícone Compartilhar ↑ na barra inferior, ' +
+          'role até "Adicionar à Tela Inicial" e confirme.'
+        );
+        return;
+      }
+
+      if (!deferredPrompt) {
+        showHint('Este navegador não suporta instalação automática. ' +
+                 'Tente pelo Chrome no Android ou Edge no desktop.');
+        return;
+      }
+
+      // Dispara o prompt nativo
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+
+      if (outcome === 'accepted') {
+        localStorage.setItem(KEY_INSTALLED, '1');
+        closeModal();
+      } else {
+        // Cancelou o prompt nativo → conta como recusa
+        closeModal({ persist: true });
+      }
+      deferredPrompt = null;
+    }
+
+    function handleDecline() {
+      closeModal({ persist: true });
+    }
+
+    // ── Elegibilidade ──────────────────────────────────────────
+    function shouldOffer() {
+      if (isStandalone())  return false;   // já está instalado
+      if (wasInstalled())  return false;   // marcou como instalado antes
+      if (wasDismissed())  return false;   // recusou antes
+      if (isIOS())         return true;    // iOS: instruções manuais
+      return !!deferredPrompt;             // Android/Desktop: só se suportado
+    }
+
+    function tryShow() {
+      if (!shouldOffer()) return;
+      openModal();
+    }
+
+    // ── Agendamento ────────────────────────────────────────────
+    function scheduleShow() {
+      if (scheduled) return;
+      scheduled = true;
+      setTimeout(tryShow, SHOW_DELAY_MS);
+    }
+
+    // ── Init ───────────────────────────────────────────────────
+    function init() {
+      modalEl    = document.getElementById('installModal');
+      acceptBtn  = document.getElementById('installAccept');
+      declineBtn = document.getElementById('installDecline');
+      closeBtn   = document.getElementById('installClose');
+      hintEl     = document.getElementById('installHint');
+
+      if (!modalEl) return;
+
+      acceptBtn?.addEventListener('click', handleAccept);
+      declineBtn?.addEventListener('click', handleDecline);
+      closeBtn?.addEventListener('click', handleDecline);
+
+      modalEl.querySelector('[data-close="install"]')
+        ?.addEventListener('click', handleDecline);
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && modalEl.classList.contains('show')) {
+          handleDecline();
+        }
+      });
+
+      // Já está instalado?
+      if (isStandalone()) {
+        localStorage.setItem(KEY_INSTALLED, '1');
+        return;
+      }
+
+      // Android/Chrome: captura o evento nativo
+      window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        scheduleShow();
+      });
+
+      // Instalação concluída
+      window.addEventListener('appinstalled', () => {
+        localStorage.setItem(KEY_INSTALLED, '1');
+        closeModal();
+        deferredPrompt = null;
+      });
+
+      // iOS: agenda direto (não tem beforeinstallprompt)
+      if (isIOS()) scheduleShow();
+    }
+
+    // ── API pública ────────────────────────────────────────────
+    function reset() {
+      localStorage.removeItem(KEY_DISMISSED);
+      localStorage.removeItem(KEY_INSTALLED);
+      scheduled = false;
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+
+    return { reset, open: tryShow };
+  })();
+
+  /* ══════════════════════════════════════════════════════════════
      SERVICE WORKER
-     ============================================================ */
+     ══════════════════════════════════════════════════════════════ */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () =>
       navigator.serviceWorker.register('./sw.js')
@@ -718,9 +1260,9 @@
     );
   }
 
-  /* ============================================================
+  /* ══════════════════════════════════════════════════════════════
      ÍCONES SVG — mostrar/ocultar senha
-     ============================================================ */
+     ══════════════════════════════════════════════════════════════ */
   const SVG_EYE_OPEN = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -735,15 +1277,9 @@
       <line x1="1" y1="1" x2="23" y2="23"></line>
     </svg>`;
 
-  /* ============================================================
+  /* ══════════════════════════════════════════════════════════════
      HELPERS GLOBAIS DE AUTH
-     ============================================================ */
-
-  /**
-   * Alterna visibilidade da senha.
-   * Quando o campo está como password, mostra o ícone "olho aberto" (clicar = mostrar).
-   * Quando o campo está como text, mostra o ícone "olho cortado" (clicar = ocultar).
-   */
+     ══════════════════════════════════════════════════════════════ */
   window.togglePasswordVisibility = function (inputId, btnEl) {
     const input = document.getElementById(inputId);
     if (!input || !btnEl) return;
@@ -756,9 +1292,6 @@
     btnEl.setAttribute('title',      isHidden ? 'Ocultar senha' : 'Mostrar senha');
   };
 
-  /**
-   * Alterna entre as views de login / cadastro / recuperação.
-   */
   window.switchAuthView = function (viewId) {
     document.querySelectorAll('.auth-view').forEach(el => el.classList.remove('active'));
     document.getElementById(viewId)?.classList.add('active');
@@ -766,31 +1299,48 @@
     if (msgEl) msgEl.textContent = '';
   };
 
-  /* ============================================================
-     Inicializa os ícones dos botões de senha no DOM pronto
-     ============================================================ */
+  /* ══════════════════════════════════════════════════════════════
+     INICIALIZAÇÃO
+     ══════════════════════════════════════════════════════════════ */
   document.addEventListener('DOMContentLoaded', () => {
+    // Ícones dos botões de senha
     document.querySelectorAll('.toggle-password').forEach(btn => {
       btn.innerHTML = SVG_EYE_OPEN;
       btn.setAttribute('aria-label', 'Mostrar senha');
       btn.setAttribute('title', 'Mostrar senha');
     });
-  });
 
-  /* ============================================================
-     Fechar modal de auth — respeita o "login forçado"
-     ============================================================ */
-  document.getElementById('authClose')?.addEventListener('click', () => {
-    const authModal = document.getElementById('authModal');
-    if (!authModal) return;
-    if (authModal.hasAttribute('data-force')) return; // login obrigatório
+    // Botão "Reativar convite" em Configurações
+    document.getElementById('btnReinstall')?.addEventListener('click', () => {
+      PWA.reset();
+      // Fecha o modal de config antes de mostrar o de instalação
+      if (window.UI?.hideModal) {
+        UI.hideModal('configModal');
+      } else {
+        const cfg = document.getElementById('configModal');
+        if (cfg) {
+          cfg.classList.remove('show', 'active', 'visible');
+          cfg.style.display = 'none';
+        }
+      }
+      // Pequeno delay para animação ficar limpa
+      setTimeout(() => PWA.open(), 200);
+    });
 
-    authModal.classList.remove('show', 'active', 'visible');
-    authModal.style.display = 'none';
+    // Fechar modal de auth — respeita o "login forçado"
+    document.getElementById('authClose')?.addEventListener('click', () => {
+      const authModal = document.getElementById('authModal');
+      if (!authModal) return;
+      if (authModal.hasAttribute('data-force')) return;
+
+      authModal.classList.remove('show', 'active', 'visible');
+      authModal.style.display = 'none';
+    });
   });
 </script>
 
 <!-- 6. O app principal SEMPRE por último -->
 <script src="js/app.js"></script>
+
 </body>
 </html>

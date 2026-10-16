@@ -13,7 +13,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 
-const CACHE_VER = 'lista-compras-v3.1';
+const CACHE_VER = 'lista-compras-v3.3';
 const CACHE_STATIC = `${CACHE_VER}-static`;
 
 // Assets que devem ser cacheados no install (app shell).
